@@ -1,0 +1,23 @@
+name: Notify meta repo
+
+on:
+  push:
+    branches: [main]
+
+jobs:
+  notify:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Dispatch event
+        run: |
+          curl -X POST \
+          -H "Accept: application/vnd.github+json" \
+          -H "Authorization: Bearer ${{ secrets.META_REPO_TOKEN }}" \
+          https://api.github.com/repos/MaxNoragami/gms-iot-project/dispatches \
+          -d '{
+            "event_type": "update-submodule",
+            "client_payload": {
+              "submodule": "Backend"
+            }
+          }'
