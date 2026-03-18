@@ -18,6 +18,6 @@ jobs:
           -d '{
             "event_type": "update-submodule",
             "client_payload": {
-              "submodule": "Backend"
+              "submodule": "backend"
             }
           }'
