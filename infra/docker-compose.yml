@@ -1,0 +1,50 @@
+# ==============================================================================
+# GMS – local development infrastructure
+#
+# Services:
+#   emqx  – MQTT broker (EMQX 5.x), mirrors the EMQX Cloud setup used in prod
+#
+# Usage:
+#   docker compose -f infra/docker-compose.yml up -d
+#   docker compose -f infra/docker-compose.yml down
+#
+# EMQX Dashboard: http://localhost:18083  (admin / public)
+# SECURITY NOTE: anonymous access and the default dashboard password are for
+#                local development ONLY. Never use this compose file in prod.
+# ==============================================================================
+
+version: "3.9"
+
+services:
+
+  emqx:
+    image: emqx/emqx:5.6.0
+    container_name: gms-emqx
+    restart: unless-stopped
+    ports:
+      - "1883:1883"     # MQTT plain TCP  ← used by application-dev.yml
+      - "8083:8083"     # MQTT over WebSocket
+      - "8883:8883"     # MQTT over TLS   (configure certs to test mTLS locally)
+      - "18083:18083"   # EMQX web dashboard
+    environment:
+      EMQX_NAME: emqx
+      EMQX_HOST: "127.0.0.1"
+      EMQX_DASHBOARD__DEFAULT_USERNAME: admin
+      EMQX_DASHBOARD__DEFAULT_PASSWORD: public
+      # Allow anonymous MQTT connections for local development
+      EMQX_ALLOW_ANONYMOUS: "true"
+      EMQX_ACL_NOMATCH: allow
+      EMQX_LOG__LEVEL: warning
+    volumes:
+      - emqx_data:/opt/emqx/data
+      - emqx_log:/opt/emqx/log
+    healthcheck:
+      test: ["CMD", "emqx", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+
+volumes:
+  emqx_data:
+  emqx_log:
