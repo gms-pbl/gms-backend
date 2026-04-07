@@ -7,18 +7,24 @@ import org.springframework.security.config.annotation.web.configuration.EnableWe
 import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
 import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.web.SecurityFilterChain;
+import org.springframework.web.cors.CorsConfiguration;
+import org.springframework.web.cors.CorsConfigurationSource;
+import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
+
+import java.util.List;
 
 /**
  * Spring Security baseline configuration.
  *
- * <p>Current state: permits actuator health/info endpoints publicly and
- * requires authentication for all other routes. Stateless session policy —
- * JWT filter will be inserted here in the RBAC work-package.
+ * <p>Current state: all {@code /v1/**} endpoints are open while JWT is pending.
+ * CORS is configured to allow the Vite dev server (localhost:5173) and any
+ * other localhost port used during development.
  *
- * <p>Next steps:
+ * <p>Next steps (RBAC work-package):
  * <ul>
  *   <li>Add JWT authentication filter before {@code UsernamePasswordAuthenticationFilter}.
- *   <li>Apply method-level {@code @PreAuthorize} with role checks (ADMIN, OPERATOR, VIEWER).
+ *   <li>Replace the {@code /v1/**} permit-all with per-role {@code @PreAuthorize} checks.
+ *   <li>Tighten CORS {@code allowedOriginPatterns} to the production domain.
  *   <li>Enable audit logging for 401 / 403 responses.
  * </ul>
  */
@@ -29,17 +35,31 @@ public class SecurityConfig {
     @Bean
     public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
         http
+            .cors(cors -> cors.configurationSource(corsConfigurationSource()))
             .csrf(AbstractHttpConfigurer::disable)
             .sessionManagement(session ->
                 session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
             .authorizeHttpRequests(auth -> auth
-                // Actuator health / info — publicly readable (liveness probes, dashboard)
                 .requestMatchers("/actuator/health", "/actuator/info").permitAll()
-                // All other endpoints require an authenticated request
-                // (JWT filter to be added in the RBAC work-package)
+                // TODO (RBAC WP): replace with JWT filter + per-role @PreAuthorize
+                .requestMatchers("/v1/**").permitAll()
                 .anyRequest().authenticated()
             );
 
         return http.build();
+    }
+
+    @Bean
+    CorsConfigurationSource corsConfigurationSource() {
+        CorsConfiguration cfg = new CorsConfiguration();
+        // Allow any localhost port for development; tighten to production domain before go-live
+        cfg.setAllowedOriginPatterns(List.of("http://localhost:*", "http://127.0.0.1:*"));
+        cfg.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "OPTIONS"));
+        cfg.setAllowedHeaders(List.of("*"));
+        cfg.setAllowCredentials(true);
+
+        UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
+        source.registerCorsConfiguration("/**", cfg);
+        return source;
     }
 }
