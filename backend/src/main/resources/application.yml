@@ -1,0 +1,52 @@
+# ==============================================================================
+# GMS Backend – default (production) configuration
+# Secrets are injected via environment variables; no plaintext credentials here.
+# ==============================================================================
+
+spring:
+  application:
+    name: gms-backend
+  jackson:
+    deserialization:
+      fail-on-unknown-properties: false
+    serialization:
+      write-dates-as-timestamps: false   # emit ISO 8601 strings for Instant fields
+
+server:
+  port: 8080
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics
+  endpoint:
+    health:
+      show-details: when-authorized
+
+# ------------------------------------------------------------------------------
+# MQTT – EMQX Cloud (production)
+# TLS sub-section present → mTLS enabled via X.509 client certificate.
+# ------------------------------------------------------------------------------
+gms:
+  mqtt:
+    broker-url: ${GMS_MQTT_BROKER_URL:ssl://your-emqx-cloud-host:8883}
+    client-id-prefix: gms-backend
+    username: ${GMS_MQTT_USERNAME}
+    password: ${GMS_MQTT_PASSWORD}
+    qos: 1
+    clean-session: true
+    connection-timeout: 30000    # ms
+    keep-alive-interval: 60      # seconds
+    subscription-topics:
+      - "gms/+/+/+/telemetry"
+      - "gms/+/+/+/alert"
+      - "gms/+/+/+/status"
+      - "gms/+/+/+/config"
+    tls:
+      # PEM-encoded CA certificate of the EMQX Cloud broker.
+      # Place in src/main/resources/certs/ or supply a file: path via env var.
+      ca-cert-path: ${GMS_MQTT_TLS_CA_CERT_PATH:certs/ca.crt}
+      # PKCS12 bundle containing the backend's client certificate + private key.
+      client-cert-path: ${GMS_MQTT_TLS_CLIENT_CERT_PATH:certs/backend-client.p12}
+      key-password: ${GMS_MQTT_TLS_KEY_PASSWORD:}

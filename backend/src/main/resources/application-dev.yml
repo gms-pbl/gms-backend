@@ -1,0 +1,31 @@
+# ==============================================================================
+# GMS Backend – development profile
+# Activate: export SPRING_PROFILES_ACTIVE=dev  (or -Dspring.profiles.active=dev)
+#
+# Targets the local EMQX Docker container (see infra/docker-compose.yml).
+# TLS is disabled; anonymous connections are allowed on port 1883.
+# ==============================================================================
+
+server:
+  port: 8081
+
+gms:
+  mqtt:
+    broker-url: tcp://localhost:1883
+    client-id-prefix: gms-backend-dev
+    username: dev-user
+    password: dev-pass
+    qos: 1
+    clean-session: true
+    # tls: intentionally absent → MqttClientFactoryConfig skips SSL setup entirely
+
+logging:
+  level:
+    md.utm.gms: DEBUG
+    org.springframework.integration: INFO
+    org.eclipse.paho: DEBUG
+
+management:
+  endpoint:
+    health:
+      show-details: always
