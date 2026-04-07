@@ -3,13 +3,18 @@ package md.utm.gms.backend.mqtt.handler;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import md.utm.gms.backend.api.dto.SensorReadingResponse;
 import md.utm.gms.backend.mqtt.dto.TelemetryPayload;
+import md.utm.gms.backend.store.SensorReadingStore;
 import org.springframework.integration.annotation.ServiceActivator;
 import org.springframework.messaging.Message;
 import org.springframework.stereotype.Component;
 
 /**
  * Processes inbound telemetry messages received from edge devices over MQTT.
+ *
+ * <p>Current behaviour: deserialises the payload and stores the latest reading
+ * per sensor key in {@link SensorReadingStore} for REST polling by the dashboard.
  *
  * <p>Next steps (separate work-packages):
  * <ul>
@@ -24,6 +29,7 @@ import org.springframework.stereotype.Component;
 public class TelemetryHandler {
 
     private final ObjectMapper objectMapper;
+    private final SensorReadingStore sensorReadingStore;
 
     @ServiceActivator(inputChannel = "telemetryChannel")
     public void handle(Message<String> message) {
@@ -31,8 +37,9 @@ public class TelemetryHandler {
             TelemetryPayload payload = objectMapper.readValue(
                     message.getPayload(), TelemetryPayload.class);
 
-            log.info("Telemetry  sensorId={}  parameter={}  value={} {}  quality={}  ts={}",
-                    payload.getSensorId(),
+            sensorReadingStore.update(SensorReadingResponse.from(payload));
+
+            log.info("Telemetry  sensorKey={}  value={} {}  quality={}  ts={}",
                     payload.getParameter(),
                     payload.getValue(),
                     payload.getUnit(),
@@ -44,7 +51,7 @@ public class TelemetryHandler {
             //              fields: value (float), unit (string), quality (string)
 
         } catch (Exception e) {
-            log.error("Failed to process telemetry message: payload='{}' error='{}'",
+            log.error("Failed to process telemetry  payload='{}' error='{}'",
                     message.getPayload(), e.getMessage(), e);
         }
     }
