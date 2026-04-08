@@ -23,7 +23,8 @@ public class OpenApiConfig {
                                 .name("UTM GMS Team")
                                 .email("gms@utm.md")))
                 .servers(List.of(
-                        new Server().url("http://localhost:8080").description("Local dev"),
+                        new Server().url("http://localhost:8081").description("Local dev (dev profile)"),
+                        new Server().url("http://localhost:8080").description("Local prod (default profile)"),
                         new Server().url("https://api.gms.utm.md").description("Production")));
     }
 }
