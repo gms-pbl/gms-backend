@@ -17,7 +17,18 @@ gms:
     password: dev-pass
     qos: 1
     clean-session: true
-    # tls: intentionally absent → MqttClientFactoryConfig skips SSL setup entirely
+    subscription-topics:
+      - "gms/+/+/+/telemetry"
+      - "gms/+/+/+/alert"
+      - "gms/+/+/+/status"
+      - "gms/+/+/+/config"
+    # Explicitly blank out TLS cert paths so MqttClientFactoryConfig skips SSL setup.
+    # application.yml sets defaults (certs/ca.crt etc.) which Spring merges in;
+    # empty strings here override those defaults and signal "no TLS in dev".
+    tls:
+      ca-cert-path: ""
+      client-cert-path: ""
+      key-password: ""
 
 logging:
   level:

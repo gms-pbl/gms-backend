@@ -55,7 +55,11 @@ public class MqttClientFactoryConfig {
         options.setCleanSession(props.isCleanSession());
         options.setAutomaticReconnect(true);
 
-        if (props.getTls() != null) {
+        // TLS is active only when a non-blank CA cert path is provided.
+        // An empty string in application-dev.yml overrides the production defaults,
+        // allowing plain TCP connections without any code changes.
+        if (props.getTls() != null && props.getTls().getCaCertPath() != null
+                && !props.getTls().getCaCertPath().isBlank()) {
             log.info("MQTT: configuring mTLS (caCert={}, clientCert={})",
                     props.getTls().getCaCertPath(), props.getTls().getClientCertPath());
             options.setSocketFactory(buildSslContext(props.getTls()).getSocketFactory());
