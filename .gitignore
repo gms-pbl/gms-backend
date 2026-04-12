@@ -1,16 +1,16 @@
 # ── Maven ────────────────────────────────────────────────────────────────────
-target/
-*.jar
-*.war
-*.ear
-.mvn/wrapper/maven-wrapper.jar
+**/**/target/
+**/**/*.jar
+**/**/*.war
+**/**/*.ear
+**/**/.mvn/wrapper/maven-wrapper.jar
 
 # ── IDE ──────────────────────────────────────────────────────────────────────
-.idea/
 *.iml
 *.iws
 *.ipr
-.vscode/
+**/**/.vscode/
+**/**/.idea/
 *.suo
 *.ntvs*
 *.njsproj
@@ -18,25 +18,25 @@ target/
 *.sw?
 
 # ── OS ───────────────────────────────────────────────────────────────────────
-.DS_Store
-Thumbs.db
+**/**/.DS_Store
+**/**/Thumbs.db
 
 # ── Spring Boot ──────────────────────────────────────────────────────────────
-spring-shell.log
+**/**/spring-shell.log
 
 # ── TLS certificates (never commit private keys or .p12 bundles) ─────────────
-backend/src/main/resources/certs/*.crt
-backend/src/main/resources/certs/*.pem
-backend/src/main/resources/certs/*.p12
-backend/src/main/resources/certs/*.key
+**/**/*.crt
+**/**/*.pem
+**/**/*.p12
+**/**/*.key
 
 # ── Environment / secrets ─────────────────────────────────────────────────────
-.env
-*.env
+**/**/.env
+**/**/*.env
 
 # ── Docker volumes (if bind-mounted locally) ──────────────────────────────────
-infra/volumes/
+**/**/infra/volumes/
 
 # ── Logs ─────────────────────────────────────────────────────────────────────
-*.log
-logs/
+**/**/*.log
+**/**/logs/
