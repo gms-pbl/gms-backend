@@ -13,7 +13,7 @@ import org.springframework.stereotype.Service;
  * Publishes actuator commands to IoT edge devices via MQTT.
  *
  * <p>The caller supplies the full topic in the pattern
- * {@code gms/{site_id}/{greenhouse_id}/{zone_id}/command}
+ * {@code gms/{tenant_id}/{greenhouse_id}/downlink/{stream}}
  * and any serialisable command object; this service serialises it to JSON and
  * places it on the outbound channel for delivery by
  * {@link md.utm.gms.backend.config.MqttIntegrationConfig#mqttOutboundHandler()}.
@@ -29,7 +29,7 @@ public class CommandService {
     /**
      * Serialises {@code payload} to JSON and publishes it to {@code topic}.
      *
-     * @param topic   full MQTT topic, e.g. {@code gms/site1/gh1/zone1/command}
+     * @param topic   full MQTT topic, e.g. {@code gms/tenant-a/greenhouse-a/downlink/command}
      * @param payload any serialisable command object
      * @throws IllegalArgumentException if serialisation fails
      */
