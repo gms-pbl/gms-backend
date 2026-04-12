@@ -13,10 +13,13 @@ import org.springframework.stereotype.Component;
  * the last path segment of the MQTT topic.
  *
  * <p>Expected topic pattern:
- * <pre>gms/{site_id}/{greenhouse_id}/{zone_id}/{type}</pre>
+ * <pre>gms/{tenant_id}/{greenhouse_id}/uplink/{type}</pre>
  *
  * <p>Where {@code {type}} is one of:
- * {@code telemetry}, {@code alert}, {@code status}, {@code config}, {@code command}.
+ * {@code telemetry}, {@code alert}, {@code status}, {@code registry}, {@code command_ack}.
+ *
+ * <p>The dispatcher also supports legacy topics in the form
+ * {@code gms/{site_id}/{greenhouse_id}/{zone_id}/{type}} for backwards compatibility.
  */
 @Slf4j
 @Component
@@ -27,6 +30,8 @@ public class TopicDispatcher {
     private final MessageChannel alertChannel;
     private final MessageChannel statusChannel;
     private final MessageChannel configChannel;
+    private final MessageChannel registryChannel;
+    private final MessageChannel commandAckChannel;
 
     @ServiceActivator(inputChannel = "mqttInboundChannel")
     public void dispatch(Message<String> message) {
@@ -36,28 +41,76 @@ public class TopicDispatcher {
             return;
         }
 
-        String type = extractType(topic);
-        log.debug("MQTT dispatch  topic={}  type={}", topic, type);
+        Route route = resolveRoute(topic);
+        log.debug("MQTT dispatch topic={} route={}", topic, route);
 
-        switch (type) {
-            case "telemetry" -> telemetryChannel.send(message);
-            case "alert"     -> alertChannel.send(message);
-            case "status"    -> statusChannel.send(message);
-            case "config"    -> configChannel.send(message);
-            case "command"   ->
-                // The backend publishes commands outbound; receiving one here means
-                // the broker echoed it back. Log and discard.
-                log.debug("Received echo of outbound command on topic {} — ignoring", topic);
-            default -> log.warn("Unknown MQTT message type '{}' on topic {} — discarding", type, topic);
+        switch (route) {
+            case TELEMETRY -> telemetryChannel.send(message);
+            case ALERT -> alertChannel.send(message);
+            case STATUS -> statusChannel.send(message);
+            case CONFIG -> configChannel.send(message);
+            case REGISTRY -> registryChannel.send(message);
+            case COMMAND_ACK -> commandAckChannel.send(message);
+            case IGNORE -> log.debug("Ignoring MQTT topic {}", topic);
+            case UNKNOWN -> log.warn("Unknown MQTT route on topic {} — discarding", topic);
         }
     }
 
-    /**
-     * Returns the last path segment of an MQTT topic string.
-     * e.g. {@code "gms/site1/gh1/zone1/telemetry"} → {@code "telemetry"}
-     */
+    private static Route resolveRoute(String topic) {
+        String[] segments = topic.split("/");
+
+        // New contract: gms/{tenant}/{greenhouse}/uplink/{stream}
+        if (segments.length >= 5 && "gms".equals(segments[0]) && "uplink".equals(segments[3])) {
+            return mapType(segments[4]);
+        }
+
+        // Ignore own downlink command echoes
+        if (segments.length >= 5 && "gms".equals(segments[0]) && "downlink".equals(segments[3])) {
+            return Route.IGNORE;
+        }
+
+        // Legacy fallback: gms/{site}/{greenhouse}/{zone}/{type}
+        if (segments.length >= 5 && "gms".equals(segments[0])) {
+            return mapType(segments[segments.length - 1]);
+        }
+
+        // Legacy edge-engine passthrough path (cloud/...) still accepted during migration
+        if (topic.startsWith("cloud/")) {
+            return mapType(extractType(topic));
+        }
+
+        return Route.UNKNOWN;
+    }
+
+    private static Route mapType(String type) {
+        if (type == null) {
+            return Route.UNKNOWN;
+        }
+        return switch (type) {
+            case "telemetry" -> Route.TELEMETRY;
+            case "alert" -> Route.ALERT;
+            case "status" -> Route.STATUS;
+            case "config" -> Route.CONFIG;
+            case "registry" -> Route.REGISTRY;
+            case "command_ack" -> Route.COMMAND_ACK;
+            case "command" -> Route.IGNORE;
+            default -> Route.UNKNOWN;
+        };
+    }
+
     private static String extractType(String topic) {
         int lastSlash = topic.lastIndexOf('/');
         return lastSlash >= 0 ? topic.substring(lastSlash + 1) : topic;
+    }
+
+    private enum Route {
+        TELEMETRY,
+        ALERT,
+        STATUS,
+        CONFIG,
+        REGISTRY,
+        COMMAND_ACK,
+        IGNORE,
+        UNKNOWN
     }
 }

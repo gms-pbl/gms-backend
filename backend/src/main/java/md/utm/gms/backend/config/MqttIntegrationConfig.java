@@ -19,7 +19,7 @@ import java.util.UUID;
  * <pre>
  * ┌─────────────────────────────────────────────────────────────────────┐
  * │  EMQX Broker                                                        │
- * │     │  (subscribes: gms/+/+/+/telemetry|alert|status|config)        │
+ * │     │  (subscribes: gms/+/+/uplink/# + compatibility topics)         │
  * │     ▼                                                               │
  * │  MqttPahoMessageDrivenChannelAdapter                                │
  * │     │                                                               │
@@ -29,9 +29,9 @@ import java.util.UUID;
  * │                                ▼        ▼        ▼        ▼         │
  * │                          telemetry   alert   status   config        │
  * │                           Channel   Channel  Channel  Channel       │
- * │                                │        │        │                  │
- * │                                ▼        ▼        ▼                  │
- * │                         TelemetryH  AlertH  StatusH                 │
+ * │                                │                                   │
+ * │                                ▼                                   │
+ * │                         registry / commandAck channels             │
  * │                                                                     │
  * │  CommandService  ──►  mqttOutboundChannel                           │
  * │                              │                                      │
@@ -59,6 +59,8 @@ public class MqttIntegrationConfig {
     @Bean public MessageChannel alertChannel()        { return new DirectChannel(); }
     @Bean public MessageChannel statusChannel()       { return new DirectChannel(); }
     @Bean public MessageChannel configChannel()       { return new DirectChannel(); }
+    @Bean public MessageChannel registryChannel()     { return new DirectChannel(); }
+    @Bean public MessageChannel commandAckChannel()   { return new DirectChannel(); }
 
     // ── Inbound adapter ───────────────────────────────────────────────────────
 

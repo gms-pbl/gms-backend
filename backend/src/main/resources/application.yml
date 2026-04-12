@@ -39,6 +39,7 @@ gms:
     connection-timeout: 30000    # ms
     keep-alive-interval: 60      # seconds
     subscription-topics:
+      - "gms/+/+/uplink/#"
       - "gms/+/+/+/telemetry"
       - "gms/+/+/+/alert"
       - "gms/+/+/+/status"

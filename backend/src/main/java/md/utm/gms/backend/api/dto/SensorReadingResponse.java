@@ -36,6 +36,15 @@ public class SensorReadingResponse {
     @JsonProperty("sensor_key")
     private String sensorKey;
 
+    @JsonProperty("greenhouse_id")
+    private String greenhouseId;
+
+    @JsonProperty("zone_id")
+    private String zoneId;
+
+    @JsonProperty("device_id")
+    private String deviceId;
+
     private double value;
 
     private String unit;
