@@ -4,6 +4,7 @@ import lombok.RequiredArgsConstructor;
 import md.utm.gms.backend.api.dto.SensorReadingResponse;
 import md.utm.gms.backend.store.SensorReadingStore;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
@@ -30,7 +31,11 @@ public class DashboardController {
      * {@code sensor_reading} measurement for the most recent point per sensor key.
      */
     @GetMapping("/live")
-    public List<SensorReadingResponse> live() {
+    public List<SensorReadingResponse> live(@RequestParam(value = "greenhouse_id", required = false) String greenhouseId,
+                                            @RequestParam(value = "zone_id", required = false) String zoneId) {
+        if ((greenhouseId != null && !greenhouseId.isBlank()) || (zoneId != null && !zoneId.isBlank())) {
+            return sensorReadingStore.getByScope(greenhouseId, zoneId);
+        }
         return sensorReadingStore.getAll();
     }
 }

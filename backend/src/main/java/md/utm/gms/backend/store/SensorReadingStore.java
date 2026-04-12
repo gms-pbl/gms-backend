@@ -23,10 +23,28 @@ public class SensorReadingStore {
     private final ConcurrentHashMap<String, SensorReadingResponse> readings = new ConcurrentHashMap<>();
 
     public void update(SensorReadingResponse reading) {
-        readings.put(reading.getSensorKey(), reading);
+        readings.put(composeKey(reading), reading);
     }
 
     public List<SensorReadingResponse> getAll() {
         return new ArrayList<>(readings.values());
+    }
+
+    public List<SensorReadingResponse> getByScope(String greenhouseId, String zoneId) {
+        return readings.values().stream()
+                .filter(reading -> greenhouseId == null || greenhouseId.isBlank() || greenhouseId.equals(reading.getGreenhouseId()))
+                .filter(reading -> zoneId == null || zoneId.isBlank() || zoneId.equals(reading.getZoneId()))
+                .toList();
+    }
+
+    private static String composeKey(SensorReadingResponse reading) {
+        String greenhouse = normalize(reading.getGreenhouseId());
+        String zone = normalize(reading.getZoneId());
+        String sensor = normalize(reading.getSensorKey());
+        return greenhouse + ":" + zone + ":" + sensor;
+    }
+
+    private static String normalize(String value) {
+        return value == null ? "_" : value;
     }
 }

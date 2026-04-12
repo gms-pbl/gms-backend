@@ -18,6 +18,7 @@ gms:
     qos: 1
     clean-session: true
     subscription-topics:
+      - "gms/+/+/uplink/#"
       - "gms/+/+/+/telemetry"
       - "gms/+/+/+/alert"
       - "gms/+/+/+/status"
