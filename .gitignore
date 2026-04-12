@@ -16,6 +16,10 @@
 *.njsproj
 *.sln
 *.sw?
+backend/.classpath
+backend/.project
+backend/.factorypath
+backend/.settings/
 
 # ── OS ───────────────────────────────────────────────────────────────────────
 **/**/.DS_Store
