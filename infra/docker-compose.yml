@@ -1,37 +1,50 @@
 # ==============================================================================
-# GMS – local development infrastructure
+# GMS backend local infrastructure
 #
-# Services:
-#   emqx  – MQTT broker (EMQX 5.x), mirrors the EMQX Cloud setup used in prod
+# Default flow in this repository:
+# - gateway stack (firmware/src/gateway) runs local broker on host port 1883
+# - backend container from this compose connects to that broker
 #
-# Usage:
-#   docker compose -f infra/docker-compose.yml up -d
-#   docker compose -f infra/docker-compose.yml down
-#
-# EMQX Dashboard: http://localhost:18083  (admin / public)
-# SECURITY NOTE: anonymous access and the default dashboard password are for
-#                local development ONLY. Never use this compose file in prod.
+# Optional profile `emqx` is available for backend-only MQTT testing.
 # ==============================================================================
-
-version: "3.9"
 
 services:
 
+  backend:
+    image: maven:3.9-eclipse-temurin-21
+    container_name: gms-backend-dev
+    working_dir: /workspace/backend/backend
+    volumes:
+      - ..:/workspace/backend:Z
+      - maven_cache:/root/.m2
+    environment:
+      SPRING_PROFILES_ACTIVE: dev
+      MAVEN_OPTS: "-Dfile.encoding=UTF-8"
+    command: >
+      mvn spring-boot:run
+      -Dspring-boot.run.profiles=dev
+      -Dspring-boot.run.arguments=--gms.mqtt.broker-url=tcp://host.docker.internal:1883
+    ports:
+      - "8081:8081"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    restart: unless-stopped
+
   emqx:
+    profiles: ["emqx"]
     image: emqx/emqx:5.6.0
     container_name: gms-emqx
     restart: unless-stopped
     ports:
-      - "1883:1883"     # MQTT plain TCP  ← used by application-dev.yml
-      - "8083:8083"     # MQTT over WebSocket
-      - "8883:8883"     # MQTT over TLS   (configure certs to test mTLS locally)
-      - "18083:18083"   # EMQX web dashboard
+      - "1883:1883"
+      - "8083:8083"
+      - "8883:8883"
+      - "18083:18083"
     environment:
       EMQX_NAME: emqx
       EMQX_HOST: "127.0.0.1"
       EMQX_DASHBOARD__DEFAULT_USERNAME: admin
       EMQX_DASHBOARD__DEFAULT_PASSWORD: public
-      # Allow anonymous MQTT connections for local development
       EMQX_ALLOW_ANONYMOUS: "true"
       EMQX_ACL_NOMATCH: allow
       EMQX_LOG__LEVEL: warning
@@ -46,5 +59,6 @@ services:
       start_period: 30s
 
 volumes:
+  maven_cache:
   emqx_data:
   emqx_log:
