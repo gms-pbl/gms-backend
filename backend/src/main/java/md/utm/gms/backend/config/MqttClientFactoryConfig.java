@@ -86,7 +86,7 @@ public class MqttClientFactoryConfig {
         try (InputStream caCertStream = openResource(tls.getCaCertPath())) {
             X509Certificate caCert = (X509Certificate)
                     CertificateFactory.getInstance("X.509").generateCertificate(caCertStream);
-            trustStore.setCertificateEntry("emqx-ca", caCert);
+            trustStore.setCertificateEntry("mqtt-ca", caCert);
         }
         TrustManagerFactory tmf = TrustManagerFactory
                 .getInstance(TrustManagerFactory.getDefaultAlgorithm());
