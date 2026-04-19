@@ -2,9 +2,22 @@
 # GMS Backend – development profile
 # Activate: export SPRING_PROFILES_ACTIVE=dev  (or -Dspring.profiles.active=dev)
 #
-# Targets the local EMQX Docker container (see infra/docker-compose.yml).
-# TLS is disabled; anonymous connections are allowed on port 1883.
+# Local stack:
+# - MQTT broker from gateway workspace on localhost:1883
+# - PostgreSQL + TimescaleDB from backend/infra/docker-compose.yml
 # ==============================================================================
+
+spring:
+  datasource:
+    url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://localhost:5432/gms_backend}
+    username: ${SPRING_DATASOURCE_USERNAME:gms}
+    password: ${SPRING_DATASOURCE_PASSWORD:gms}
+    driver-class-name: org.postgresql.Driver
+  flyway:
+    enabled: true
+    default-schema: gms
+    schemas: gms
+    create-schemas: true
 
 server:
   port: 8081
@@ -19,10 +32,6 @@ gms:
     clean-session: true
     subscription-topics:
       - "gms/+/+/uplink/#"
-      - "gms/+/+/+/telemetry"
-      - "gms/+/+/+/alert"
-      - "gms/+/+/+/status"
-      - "gms/+/+/+/config"
     # Explicitly blank out TLS cert paths so MqttClientFactoryConfig skips SSL setup.
     # application.yml sets defaults (certs/ca.crt etc.) which Spring merges in;
     # empty strings here override those defaults and signal "no TLS in dev".
@@ -33,9 +42,12 @@ gms:
 
 logging:
   level:
-    md.utm.gms: DEBUG
+    md.utm.gms: INFO
+    md.utm.gms.backend.mqtt.handler.RegistryHandler: WARN
+    md.utm.gms.backend.mqtt.handler.TelemetryHandler: WARN
+    md.utm.gms.backend.mqtt.handler.StatusHandler: WARN
     org.springframework.integration: INFO
-    org.eclipse.paho: DEBUG
+    org.eclipse.paho: WARN
 
 management:
   endpoint:

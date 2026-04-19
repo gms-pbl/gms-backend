@@ -4,11 +4,29 @@
 # Default flow in this repository:
 # - gateway stack (firmware/src/gateway) runs local broker on host port 1883
 # - backend container from this compose connects to that broker
-#
-# Optional profile `emqx` is available for backend-only MQTT testing.
+# - timescaledb provides durable backend persistence (no local DB install needed)
 # ==============================================================================
 
 services:
+
+  timescaledb:
+    image: timescale/timescaledb:latest-pg16
+    container_name: gms-timescaledb
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: gms_backend
+      POSTGRES_USER: gms
+      POSTGRES_PASSWORD: gms
+    ports:
+      - "5432:5432"
+    volumes:
+      - timescaledb_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U gms -d gms_backend"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 20s
 
   backend:
     image: maven:3.9-eclipse-temurin-21
@@ -20,45 +38,22 @@ services:
     environment:
       SPRING_PROFILES_ACTIVE: dev
       MAVEN_OPTS: "-Dfile.encoding=UTF-8"
+      SPRING_DATASOURCE_URL: jdbc:postgresql://timescaledb:5432/gms_backend
+      SPRING_DATASOURCE_USERNAME: gms
+      SPRING_DATASOURCE_PASSWORD: gms
     command: >
       mvn spring-boot:run
       -Dspring-boot.run.profiles=dev
       -Dspring-boot.run.arguments=--gms.mqtt.broker-url=tcp://host.docker.internal:1883
+    depends_on:
+      timescaledb:
+        condition: service_healthy
     ports:
       - "8081:8081"
     extra_hosts:
       - "host.docker.internal:host-gateway"
     restart: unless-stopped
 
-  emqx:
-    profiles: ["emqx"]
-    image: emqx/emqx:5.6.0
-    container_name: gms-emqx
-    restart: unless-stopped
-    ports:
-      - "1883:1883"
-      - "8083:8083"
-      - "8883:8883"
-      - "18083:18083"
-    environment:
-      EMQX_NAME: emqx
-      EMQX_HOST: "127.0.0.1"
-      EMQX_DASHBOARD__DEFAULT_USERNAME: admin
-      EMQX_DASHBOARD__DEFAULT_PASSWORD: public
-      EMQX_ALLOW_ANONYMOUS: "true"
-      EMQX_ACL_NOMATCH: allow
-      EMQX_LOG__LEVEL: warning
-    volumes:
-      - emqx_data:/opt/emqx/data
-      - emqx_log:/opt/emqx/log
-    healthcheck:
-      test: ["CMD", "emqx", "ping"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-      start_period: 30s
-
 volumes:
   maven_cache:
-  emqx_data:
-  emqx_log:
+  timescaledb_data:

@@ -18,7 +18,7 @@ import java.util.UUID;
  *
  * <pre>
  * ┌─────────────────────────────────────────────────────────────────────┐
- * │  EMQX Broker                                                        │
+ * │  MQTT Broker                                                        │
  * │     │  (subscribes: gms/+/+/uplink/# + compatibility topics)         │
  * │     ▼                                                               │
  * │  MqttPahoMessageDrivenChannelAdapter                                │
@@ -36,7 +36,7 @@ import java.util.UUID;
  * │  CommandService  ──►  mqttOutboundChannel                           │
  * │                              │                                      │
  * │                              ▼                                      │
- * │                    MqttPahoMessageHandler  ──►  EMQX Broker         │
+ * │                    MqttPahoMessageHandler  ──►  MQTT Broker         │
  * └─────────────────────────────────────────────────────────────────────┘
  * </pre>
  *

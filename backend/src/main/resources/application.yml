@@ -6,6 +6,16 @@
 spring:
   application:
     name: gms-backend
+  datasource:
+    url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://localhost:5432/gms_backend}
+    username: ${SPRING_DATASOURCE_USERNAME:gms}
+    password: ${SPRING_DATASOURCE_PASSWORD:gms}
+    driver-class-name: org.postgresql.Driver
+  flyway:
+    enabled: ${SPRING_FLYWAY_ENABLED:true}
+    default-schema: gms
+    schemas: gms
+    create-schemas: true
   jackson:
     deserialization:
       fail-on-unknown-properties: false
@@ -25,12 +35,12 @@ management:
       show-details: when-authorized
 
 # ------------------------------------------------------------------------------
-# MQTT – EMQX Cloud (production)
-# TLS sub-section present → mTLS enabled via X.509 client certificate.
+# MQTT broker configuration
+# TLS sub-section present -> mTLS enabled via X.509 client certificate.
 # ------------------------------------------------------------------------------
 gms:
   mqtt:
-    broker-url: ${GMS_MQTT_BROKER_URL:ssl://your-emqx-cloud-host:8883}
+    broker-url: ${GMS_MQTT_BROKER_URL:ssl://your-mqtt-broker-host:8883}
     client-id-prefix: gms-backend
     username: ${GMS_MQTT_USERNAME}
     password: ${GMS_MQTT_PASSWORD}
@@ -40,12 +50,8 @@ gms:
     keep-alive-interval: 60      # seconds
     subscription-topics:
       - "gms/+/+/uplink/#"
-      - "gms/+/+/+/telemetry"
-      - "gms/+/+/+/alert"
-      - "gms/+/+/+/status"
-      - "gms/+/+/+/config"
     tls:
-      # PEM-encoded CA certificate of the EMQX Cloud broker.
+      # PEM-encoded CA certificate of the MQTT broker.
       # Place in src/main/resources/certs/ or supply a file: path via env var.
       ca-cert-path: ${GMS_MQTT_TLS_CA_CERT_PATH:certs/ca.crt}
       # PKCS12 bundle containing the backend's client certificate + private key.

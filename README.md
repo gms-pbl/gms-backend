@@ -21,7 +21,7 @@ Hierarchy:
 ## What This Service Handles
 
 - MQTT uplink ingest from gateway (`telemetry`, `registry`, `status`, `command_ack`)
-- Zone/device registry state in memory
+- PostgreSQL + TimescaleDB persistence for live and historical state
 - REST APIs used by frontend for zone management
 - MQTT downlink publishing for zone sync and device commands
 
@@ -39,7 +39,7 @@ flowchart LR
 ## Prerequisites
 
 - Docker (recommended for non-backend contributors)
-- Java 17+ and Maven (only if running backend natively)
+- Java 21+ and Maven (only if running backend natively)
 
 ## Run Options
 
@@ -66,15 +66,12 @@ Stop:
 
 Backend endpoint: `http://localhost:8081`
 
-This containerized backend connects to the gateway broker on host `1883`.
+This stack starts two containers:
 
-Optional backend-only MQTT broker:
+- `timescaledb` on `localhost:5432`
+- `gms-backend-dev` on `localhost:8081`
 
-```bash
-./scripts/up.sh --profile emqx emqx
-```
-
-EMQX dashboard: `http://localhost:18083`
+The backend container connects to the gateway broker on host `1883`.
 
 ### Option B: Native backend development
 
@@ -85,10 +82,25 @@ cd backend/backend
 ./scripts/run_dev.sh
 ```
 
+## Troubleshooting
+
+- Health check: `curl http://localhost:8081/actuator/health`
+- If frontend proxy reports `ECONNREFUSED` / `ECONNRESET`, backend is down or restarting.
+- Check backend container logs: `docker logs -f gms-backend-dev`
+- Native runs should use Java 21 (`java -version`).
+
 ## Config Profiles
 
 - `application-dev.yml` - local dev profile, backend on port `8081`
 - `application.yml` - default/prod-oriented settings
+
+## Persistence (Current)
+
+- `gms.telemetry_reading` - time-series history (Timescale hypertable, 90-day retention)
+- `gms.latest_metric` - latest per-device sensor snapshot for `/v1/dashboard/live`
+- `gms.zone_device` - discovered/assigned registry state
+- `gms.command_ack` - latest command ack by `command_id`
+- `gms.alert_event` - active + acknowledged + dismissed alerts
 
 ## REST API Purpose Map
 

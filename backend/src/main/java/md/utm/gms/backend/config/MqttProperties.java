@@ -11,7 +11,7 @@ import org.springframework.validation.annotation.Validated;
 import java.util.List;
 
 /**
- * Typed configuration for the EMQX MQTT broker connection.
+ * Typed configuration for the MQTT broker connection.
  * Bound from the {@code gms.mqtt.*} namespace in {@code application.yml}.
  *
  * <p>Override values per environment:
