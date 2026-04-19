@@ -16,15 +16,8 @@ import java.util.UUID;
 /**
  * Processes inbound alert events received from edge devices over MQTT.
  *
- * <p>Current behaviour: deserialises the payload and stores the alert in
+ * <p>Current behaviour: deserialises the payload and persists it through
  * {@link AlertStore} so it is immediately visible in the dashboard.
- *
- * <p>Next steps (separate work-packages):
- * <ul>
- *   <li>Persist to InfluxDB ({@code alert_event} measurement).
- *   <li>Push informational alerts to the dashboard WebSocket within 5 s.
- *   <li>Dispatch FCM / Twilio notifications for critical alerts persisting &gt; 60 s.
- * </ul>
  */
 @Slf4j
 @Component
@@ -55,9 +48,6 @@ public class AlertHandler {
 
             log.warn("Alert  severity={}  sensorKey={}  message={}",
                     payload.getSeverity(), payload.getSensorKey(), payload.getMessage());
-
-            // TODO (DF-5): persist to InfluxDB, trigger WebSocket broadcast,
-            //              schedule FCM/Twilio escalation for critical alerts after 60 s
 
         } catch (Exception e) {
             log.error("Failed to process alert  payload='{}' error='{}'",

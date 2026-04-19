@@ -14,8 +14,7 @@ import java.util.List;
  * Provides the real-time sensor snapshot consumed by the React dashboard.
  *
  * <p>The dashboard polls {@code GET /v1/dashboard/live} every 10 seconds.
- * Each response contains the most recent reading for every sensor key seen
- * since the backend started (or since the last restart).
+ * Each response contains the latest persisted reading per tracked sensor key.
  */
 @RestController
 @RequestMapping("/v1/dashboard")
@@ -24,12 +23,7 @@ public class DashboardController {
 
     private final SensorReadingStore sensorReadingStore;
 
-    /**
-     * Returns the latest reading for every sensor currently tracked in memory.
-     *
-     * <p>Once InfluxDB persistence is wired up this will query the
-     * {@code sensor_reading} measurement for the most recent point per sensor key.
-     */
+    /** Returns the latest reading snapshot persisted in {@code gms.latest_metric}. */
     @GetMapping("/live")
     public List<SensorReadingResponse> live(@RequestParam(value = "greenhouse_id", required = false) String greenhouseId,
                                             @RequestParam(value = "zone_id", required = false) String zoneId) {
