@@ -18,15 +18,8 @@ import java.util.Map;
 /**
  * Processes inbound telemetry messages received from edge devices over MQTT.
  *
- * <p>Current behaviour: deserialises the payload and stores the latest reading
- * per sensor key in {@link SensorReadingStore} for REST polling by the dashboard.
- *
- * <p>Next steps (separate work-packages):
- * <ul>
- *   <li>Persist to InfluxDB ({@code sensor_reading} measurement).
- *   <li>Evaluate threshold rules and emit alert events.
- *   <li>Forward to WebSocket broadcast channel for dashboard real-time feed.
- * </ul>
+ * <p>Current behaviour: deserialises the payload and persists both telemetry
+ * history and latest per-sensor snapshot via {@link SensorReadingStore}.
  */
 @Slf4j
 @Component
@@ -45,10 +38,6 @@ public class TelemetryHandler {
             } else {
                 handleLegacyTelemetry(message.getPayload());
             }
-
-            // TODO (DF-1): persist to InfluxDB — measurement: sensor_reading
-            //              tags:   site_id, greenhouse_id, zone_id, sensor_id, parameter
-            //              fields: value (float), unit (string), quality (string)
 
         } catch (Exception e) {
             log.error("Failed to process telemetry  payload='{}' error='{}'",
@@ -101,6 +90,10 @@ public class TelemetryHandler {
         }
 
         Instant now = payload.getTimestamp() != null ? payload.getTimestamp() : Instant.now();
+        String effectiveZoneId = payload.getZoneId() != null && !payload.getZoneId().isBlank()
+                ? payload.getZoneId()
+                : payload.getDeviceId();
+
         for (Map.Entry<String, Double> metric : payload.getMetrics().entrySet()) {
             if (metric.getValue() == null) {
                 continue;
@@ -109,7 +102,7 @@ public class TelemetryHandler {
             SensorReadingResponse reading = SensorReadingResponse.builder()
                     .sensorKey(metric.getKey())
                     .greenhouseId(payload.getGreenhouseId())
-                    .zoneId(payload.getZoneId())
+                    .zoneId(effectiveZoneId)
                     .deviceId(payload.getDeviceId())
                     .value(metric.getValue())
                     .unit("raw")

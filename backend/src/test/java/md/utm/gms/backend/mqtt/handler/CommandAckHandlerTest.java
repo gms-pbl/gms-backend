@@ -14,9 +14,9 @@ import static org.assertj.core.api.Assertions.assertThat;
 class CommandAckHandlerTest {
 
     @Test
-    void validAckPayloadIsStoredByCommandId() {
+    void validAckPayloadIsForwardedToStore() {
         ObjectMapper objectMapper = new ObjectMapper().registerModule(new JavaTimeModule());
-        CommandAckStore commandAckStore = new CommandAckStore();
+        RecordingCommandAckStore commandAckStore = new RecordingCommandAckStore();
         CommandAckHandler handler = new CommandAckHandler(objectMapper, commandAckStore);
 
         handler.handle(MessageBuilder.withPayload("""
@@ -44,11 +44,33 @@ class CommandAckHandlerTest {
     @Test
     void invalidAckPayloadIsIgnored() {
         ObjectMapper objectMapper = new ObjectMapper().registerModule(new JavaTimeModule());
-        CommandAckStore commandAckStore = new CommandAckStore();
+        RecordingCommandAckStore commandAckStore = new RecordingCommandAckStore();
         CommandAckHandler handler = new CommandAckHandler(objectMapper, commandAckStore);
 
         handler.handle(MessageBuilder.withPayload("{invalid-json}").build());
 
         assertThat(commandAckStore.findByCommandId("cmd-1")).isEmpty();
+    }
+
+    private static final class RecordingCommandAckStore extends CommandAckStore {
+
+        private CommandAckPayload payload;
+
+        private RecordingCommandAckStore() {
+            super(null);
+        }
+
+        @Override
+        public void update(CommandAckPayload payload) {
+            this.payload = payload;
+        }
+
+        @Override
+        public Optional<CommandAckPayload> findByCommandId(String commandId) {
+            if (payload == null || commandId == null || !commandId.equals(payload.getCommandId())) {
+                return Optional.empty();
+            }
+            return Optional.of(payload);
+        }
     }
 }

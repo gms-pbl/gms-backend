@@ -17,7 +17,7 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * DEV-ONLY — populates in-memory stores with realistic sample data
+ * DEV-ONLY — populates persistence stores with realistic sample data
  * so Swagger UI can be tested without a running MQTT broker.
  *
  * <p>This controller is <strong>not</strong> present in the production build —
