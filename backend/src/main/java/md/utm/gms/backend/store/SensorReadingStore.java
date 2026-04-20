@@ -19,6 +19,7 @@ public class SensorReadingStore {
     private static final RowMapper<SensorReadingResponse> READING_ROW_MAPPER = (rs, rowNum) ->
             SensorReadingResponse.builder()
                     .sensorKey(rs.getString("sensor_key"))
+                    .tenantId(rs.getString("tenant_id"))
                     .greenhouseId(rs.getString("greenhouse_id"))
                     .zoneId(rs.getString("zone_id"))
                     .deviceId(rs.getString("device_id"))
@@ -40,7 +41,8 @@ public class SensorReadingStore {
         }
 
         Instant observedAt = reading.getLastUpdatedAt() != null ? reading.getLastUpdatedAt() : Instant.now();
-        String greenhouseId = defaultString(reading.getGreenhouseId(), "greenhouse-default");
+        String tenantId = defaultString(reading.getTenantId(), "tenant-demo");
+        String greenhouseId = defaultString(reading.getGreenhouseId(), "greenhouse-demo");
         String deviceId = defaultString(reading.getDeviceId(), "device-default");
         String zoneId = defaultString(reading.getZoneId(), deviceId);
         String unit = defaultString(reading.getUnit(), "raw");
@@ -49,6 +51,7 @@ public class SensorReadingStore {
         jdbcTemplate.update(
                 """
                 INSERT INTO gms.telemetry_reading(
+                    tenant_id,
                     greenhouse_id,
                     zone_id,
                     device_id,
@@ -57,8 +60,9 @@ public class SensorReadingStore {
                     unit,
                     status,
                     observed_at
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
+                tenantId,
                 greenhouseId,
                 zoneId,
                 deviceId,
@@ -72,6 +76,7 @@ public class SensorReadingStore {
         jdbcTemplate.update(
                 """
                 INSERT INTO gms.latest_metric(
+                    tenant_id,
                     greenhouse_id,
                     zone_id,
                     device_id,
@@ -80,8 +85,8 @@ public class SensorReadingStore {
                     unit,
                     status,
                     last_updated_at
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-                ON CONFLICT (greenhouse_id, device_id, sensor_key)
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                ON CONFLICT (tenant_id, greenhouse_id, device_id, sensor_key)
                 DO UPDATE SET
                     zone_id = EXCLUDED.zone_id,
                     value = EXCLUDED.value,
@@ -89,6 +94,7 @@ public class SensorReadingStore {
                     status = EXCLUDED.status,
                     last_updated_at = EXCLUDED.last_updated_at
                 """,
+                tenantId,
                 greenhouseId,
                 zoneId,
                 deviceId,
@@ -100,10 +106,11 @@ public class SensorReadingStore {
         );
     }
 
-    public List<SensorReadingResponse> getAll() {
+    public List<SensorReadingResponse> getAll(String tenantId) {
         return jdbcTemplate.query(
                 """
-                SELECT sensor_key,
+                SELECT tenant_id,
+                       sensor_key,
                        greenhouse_id,
                        zone_id,
                        device_id,
@@ -112,15 +119,18 @@ public class SensorReadingStore {
                        status,
                        last_updated_at
                 FROM gms.latest_metric
+                WHERE tenant_id = ?
                 ORDER BY greenhouse_id, zone_id, sensor_key
                 """,
-                READING_ROW_MAPPER
+                READING_ROW_MAPPER,
+                tenantId
         );
     }
 
-    public List<SensorReadingResponse> getByScope(String greenhouseId, String zoneId) {
+    public List<SensorReadingResponse> getByScope(String tenantId, String greenhouseId, String zoneId) {
         StringBuilder sql = new StringBuilder("""
-                SELECT sensor_key,
+                SELECT tenant_id,
+                       sensor_key,
                        greenhouse_id,
                        zone_id,
                        device_id,
@@ -129,10 +139,11 @@ public class SensorReadingStore {
                        status,
                        last_updated_at
                 FROM gms.latest_metric
-                WHERE 1=1
+                WHERE tenant_id = ?
                 """);
 
         List<Object> args = new ArrayList<>();
+        args.add(tenantId);
 
         if (!isBlank(greenhouseId)) {
             sql.append(" AND greenhouse_id = ?");
@@ -147,6 +158,14 @@ public class SensorReadingStore {
         sql.append(" ORDER BY greenhouse_id, zone_id, sensor_key");
 
         return jdbcTemplate.query(sql.toString(), READING_ROW_MAPPER, args.toArray());
+    }
+
+    public List<SensorReadingResponse> getAll() {
+        return getAll("tenant-demo");
+    }
+
+    public List<SensorReadingResponse> getByScope(String greenhouseId, String zoneId) {
+        return getByScope("tenant-demo", greenhouseId, zoneId);
     }
 
     private static String defaultString(String value, String fallback) {

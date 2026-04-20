@@ -31,6 +31,12 @@ public class AlertResponse {
 
     private String id;
 
+    @JsonProperty("tenant_id")
+    private String tenantId;
+
+    @JsonProperty("greenhouse_id")
+    private String greenhouseId;
+
     private String severity;
 
     @JsonProperty("sensor_key")

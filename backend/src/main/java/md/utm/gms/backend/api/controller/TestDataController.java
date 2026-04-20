@@ -29,6 +29,9 @@ import java.util.Map;
 @RequiredArgsConstructor
 public class TestDataController {
 
+    private static final String DEMO_TENANT = "tenant-demo";
+    private static final String DEMO_GREENHOUSE = "greenhouse-demo";
+
     private final SensorReadingStore sensorReadingStore;
     private final AlertStore alertStore;
 
@@ -84,7 +87,7 @@ public class TestDataController {
     @DeleteMapping("/seed")
     public ResponseEntity<Map<String, String>> clear() {
         // Dismiss all alerts
-        alertStore.getAll().forEach(a -> alertStore.dismiss(a.getId()));
+        alertStore.getAll(DEMO_TENANT).forEach(a -> alertStore.dismiss(DEMO_TENANT, a.getId()));
         // Sensor readings don't have a bulk-clear yet; replace each with a zeroed entry
         List.of(
                 "soil_moisture", "air_temperature", "air_humidity", "soil_temp",
@@ -101,6 +104,10 @@ public class TestDataController {
                                                   String unit, String status) {
         return SensorReadingResponse.builder()
                 .sensorKey(key)
+                .tenantId(DEMO_TENANT)
+                .greenhouseId(DEMO_GREENHOUSE)
+                .zoneId(DEMO_GREENHOUSE)
+                .deviceId(DEMO_GREENHOUSE)
                 .value(value)
                 .unit(unit)
                 .status(status)
@@ -113,6 +120,8 @@ public class TestDataController {
                                        boolean acknowledged) {
         return AlertResponse.builder()
                 .id(id)
+                .tenantId(DEMO_TENANT)
+                .greenhouseId(DEMO_GREENHOUSE)
                 .severity(severity)
                 .sensorKey(sensorKey)
                 .message(message)

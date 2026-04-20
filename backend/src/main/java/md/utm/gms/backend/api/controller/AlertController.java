@@ -1,9 +1,11 @@
 package md.utm.gms.backend.api.controller;
 
 import lombok.RequiredArgsConstructor;
+import md.utm.gms.backend.auth.AuthContext;
 import md.utm.gms.backend.api.dto.AlertResponse;
 import md.utm.gms.backend.store.AlertStore;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -26,8 +28,9 @@ public class AlertController {
      * then CRITICAL → WARNING → INFO.
      */
     @GetMapping
-    public List<AlertResponse> getAlerts() {
-        return alertStore.getAll();
+    public List<AlertResponse> getAlerts(Authentication authentication) {
+        String tenantId = AuthContext.requireTenantId(authentication);
+        return alertStore.getAll(tenantId);
     }
 
     /**
@@ -37,8 +40,11 @@ public class AlertController {
      * @return 200 with the updated alert, or 404 if the id is unknown.
      */
     @PostMapping("/{id}/acknowledge")
-    public ResponseEntity<AlertResponse> acknowledge(@PathVariable String id) {
-        return alertStore.acknowledge(id)
+    public ResponseEntity<AlertResponse> acknowledge(@PathVariable String id,
+                                                     Authentication authentication) {
+        String tenantId = AuthContext.requireTenantId(authentication);
+
+        return alertStore.acknowledge(tenantId, id)
                 .map(ResponseEntity::ok)
                 .orElse(ResponseEntity.notFound().build());
     }
@@ -50,8 +56,11 @@ public class AlertController {
      * @return 204 on success, 404 if the id is unknown.
      */
     @DeleteMapping("/{id}")
-    public ResponseEntity<Void> dismiss(@PathVariable String id) {
-        return alertStore.dismiss(id)
+    public ResponseEntity<Void> dismiss(@PathVariable String id,
+                                        Authentication authentication) {
+        String tenantId = AuthContext.requireTenantId(authentication);
+
+        return alertStore.dismiss(tenantId, id)
                 ? ResponseEntity.noContent().<Void>build()
                 : ResponseEntity.notFound().<Void>build();
     }

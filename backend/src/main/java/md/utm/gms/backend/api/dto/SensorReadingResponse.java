@@ -36,6 +36,9 @@ public class SensorReadingResponse {
     @JsonProperty("sensor_key")
     private String sensorKey;
 
+    @JsonProperty("tenant_id")
+    private String tenantId;
+
     @JsonProperty("greenhouse_id")
     private String greenhouseId;
 
@@ -56,6 +59,7 @@ public class SensorReadingResponse {
     public static SensorReadingResponse from(TelemetryPayload payload) {
         return SensorReadingResponse.builder()
                 .sensorKey(payload.getParameter())
+                .tenantId("tenant-demo")
                 .value(payload.getValue())
                 .unit(payload.getUnit())
                 .status(qualityToStatus(payload.getQuality()))

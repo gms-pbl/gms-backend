@@ -101,6 +101,7 @@ public class TelemetryHandler {
 
             SensorReadingResponse reading = SensorReadingResponse.builder()
                     .sensorKey(metric.getKey())
+                    .tenantId(payload.getTenantId())
                     .greenhouseId(payload.getGreenhouseId())
                     .zoneId(effectiveZoneId)
                     .deviceId(payload.getDeviceId())

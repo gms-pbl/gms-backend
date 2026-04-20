@@ -117,6 +117,58 @@ public class CommandAckStore {
         return Optional.of(matches.get(0));
     }
 
+    public Optional<CommandAckPayload> findByCommandId(String commandId, String tenantId, String greenhouseId) {
+        if (isBlank(commandId) || isBlank(tenantId) || isBlank(greenhouseId)) {
+            return Optional.empty();
+        }
+
+        List<CommandAckPayload> matches = jdbcTemplate.query(
+                """
+                SELECT command_id,
+                       event_id,
+                       type,
+                       tenant_id,
+                       greenhouse_id,
+                       gateway_id,
+                       device_id,
+                       zone_id,
+                       status,
+                       reason,
+                       ack_timestamp
+                FROM gms.command_ack
+                WHERE command_id = ?
+                  AND tenant_id = ?
+                  AND greenhouse_id = ?
+                """,
+                (rs, rowNum) -> {
+                    CommandAckPayload payload = new CommandAckPayload();
+                    payload.setCommandId(rs.getString("command_id"));
+                    payload.setEventId(rs.getString("event_id"));
+                    payload.setType(rs.getString("type"));
+                    payload.setTenantId(rs.getString("tenant_id"));
+                    payload.setGreenhouseId(rs.getString("greenhouse_id"));
+                    payload.setGatewayId(rs.getString("gateway_id"));
+                    payload.setDeviceId(rs.getString("device_id"));
+                    payload.setZoneId(rs.getString("zone_id"));
+                    payload.setStatus(rs.getString("status"));
+                    payload.setReason(rs.getString("reason"));
+                    Timestamp ackTimestamp = rs.getTimestamp("ack_timestamp");
+                    if (ackTimestamp != null) {
+                        payload.setTimestamp(ackTimestamp.toInstant());
+                    }
+                    return payload;
+                },
+                commandId,
+                tenantId,
+                greenhouseId
+        );
+
+        if (matches.isEmpty()) {
+            return Optional.empty();
+        }
+        return Optional.of(matches.get(0));
+    }
+
     private static boolean isBlank(String value) {
         return value == null || value.isBlank();
     }
