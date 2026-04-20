@@ -1,25 +1,31 @@
 package md.utm.gms.backend.api.controller;
 
 import jakarta.validation.Valid;
-import lombok.RequiredArgsConstructor;
 import md.utm.gms.backend.api.dto.ZoneAssignRequest;
 import md.utm.gms.backend.api.dto.ZoneCommandRequest;
 import md.utm.gms.backend.api.dto.ZoneDeviceResponse;
+import md.utm.gms.backend.api.dto.GreenhouseResponse;
 import md.utm.gms.backend.api.dto.ZoneRegistryResponse;
 import md.utm.gms.backend.api.dto.ZoneSyncRequest;
 import md.utm.gms.backend.api.dto.ZoneUnassignRequest;
+import md.utm.gms.backend.auth.AuthContext;
 import md.utm.gms.backend.mqtt.CommandService;
 import md.utm.gms.backend.mqtt.dto.CommandAckPayload;
 import md.utm.gms.backend.store.CommandAckStore;
+import md.utm.gms.backend.store.GreenhouseStore;
 import md.utm.gms.backend.zones.ZoneDeviceRecord;
 import md.utm.gms.backend.zones.ZoneRegistryStore;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.server.ResponseStatusException;
 
 import java.time.Instant;
 import java.util.HashMap;
@@ -29,17 +35,29 @@ import java.util.Optional;
 import java.util.UUID;
 
 @RestController
-@RequestMapping("/v1/zones")
-@RequiredArgsConstructor
+@RequestMapping("/v1/g/{greenhouse_id}/zones")
 public class ZoneController {
 
     private final ZoneRegistryStore zoneRegistryStore;
     private final CommandService commandService;
     private final CommandAckStore commandAckStore;
+    private final GreenhouseStore greenhouseStore;
+
+    public ZoneController(ZoneRegistryStore zoneRegistryStore,
+                          CommandService commandService,
+                          CommandAckStore commandAckStore,
+                          GreenhouseStore greenhouseStore) {
+        this.zoneRegistryStore = zoneRegistryStore;
+        this.commandService = commandService;
+        this.commandAckStore = commandAckStore;
+        this.greenhouseStore = greenhouseStore;
+    }
 
     @GetMapping("/registry")
-    public ZoneRegistryResponse registry(@RequestParam("tenant_id") String tenantId,
-                                         @RequestParam("greenhouse_id") String greenhouseId) {
+    public ZoneRegistryResponse registry(@PathVariable("greenhouse_id") String greenhouseId,
+                                         Authentication authentication) {
+        String tenantId = AuthContext.requireTenantId(authentication);
+        requireGreenhouse(tenantId, greenhouseId);
 
         List<ZoneDeviceResponse> assigned = zoneRegistryStore.listByGreenhouse(tenantId, greenhouseId).stream()
                 .filter(ZoneDeviceRecord::isAssigned)
@@ -60,10 +78,15 @@ public class ZoneController {
     }
 
     @PostMapping("/assign")
-    public ResponseEntity<Map<String, Object>> assign(@Valid @RequestBody ZoneAssignRequest request) {
+    public ResponseEntity<Map<String, Object>> assign(@PathVariable("greenhouse_id") String greenhouseId,
+                                                       @Valid @RequestBody ZoneAssignRequest request,
+                                                       Authentication authentication) {
+        String tenantId = AuthContext.requireTenantId(authentication);
+        GreenhouseResponse greenhouse = requireGreenhouse(tenantId, greenhouseId);
+
         ZoneDeviceRecord updated = zoneRegistryStore.assignDevice(
-                request.getTenantId(),
-                request.getGreenhouseId(),
+                tenantId,
+                greenhouseId,
                 request.getDeviceId(),
                 request.getZoneId(),
                 request.getZoneName(),
@@ -73,9 +96,9 @@ public class ZoneController {
         Map<String, Object> command = new HashMap<>();
         command.put("command_id", commandId);
         command.put("type", "ASSIGN_ZONE");
-        command.put("tenant_id", request.getTenantId());
-        command.put("greenhouse_id", request.getGreenhouseId());
-        command.put("gateway_id", request.getGreenhouseId());
+        command.put("tenant_id", tenantId);
+        command.put("greenhouse_id", greenhouseId);
+        command.put("gateway_id", greenhouse.gatewayId());
         command.put("device_id", request.getDeviceId());
         command.put("zone_id", updated.getZoneId());
         command.put("zone_name", updated.getZoneName());
@@ -84,20 +107,25 @@ public class ZoneController {
             command.put("metadata", request.getMetadata());
         }
 
-        commandService.sendCommand(downlinkTopic(request.getTenantId(), request.getGreenhouseId(), "registry"), command);
+        publishDownlink(downlinkTopic(tenantId, greenhouseId, "registry"), command);
 
         return ResponseEntity.ok(Map.of(
                 "command_id", commandId,
-                "topic", downlinkTopic(request.getTenantId(), request.getGreenhouseId(), "registry"),
+                "topic", downlinkTopic(tenantId, greenhouseId, "registry"),
                 "device", ZoneDeviceResponse.from(updated)
         ));
     }
 
     @PostMapping("/unassign")
-    public ResponseEntity<Map<String, Object>> unassign(@Valid @RequestBody ZoneUnassignRequest request) {
+    public ResponseEntity<Map<String, Object>> unassign(@PathVariable("greenhouse_id") String greenhouseId,
+                                                         @Valid @RequestBody ZoneUnassignRequest request,
+                                                         Authentication authentication) {
+        String tenantId = AuthContext.requireTenantId(authentication);
+        GreenhouseResponse greenhouse = requireGreenhouse(tenantId, greenhouseId);
+
         Optional<ZoneDeviceRecord> updated = zoneRegistryStore.unassignDevice(
-                request.getTenantId(),
-                request.getGreenhouseId(),
+                tenantId,
+                greenhouseId,
                 request.getDeviceId());
 
         if (updated.isEmpty()) {
@@ -108,30 +136,35 @@ public class ZoneController {
         Map<String, Object> command = Map.of(
                 "command_id", commandId,
                 "type", "UNASSIGN_ZONE",
-                "tenant_id", request.getTenantId(),
-                "greenhouse_id", request.getGreenhouseId(),
-                "gateway_id", request.getGreenhouseId(),
+                "tenant_id", tenantId,
+                "greenhouse_id", greenhouseId,
+                "gateway_id", greenhouse.gatewayId(),
                 "device_id", request.getDeviceId(),
                 "issued_at", Instant.now().toString()
         );
 
-        commandService.sendCommand(downlinkTopic(request.getTenantId(), request.getGreenhouseId(), "registry"), command);
+        publishDownlink(downlinkTopic(tenantId, greenhouseId, "registry"), command);
 
         return ResponseEntity.ok(Map.of(
                 "command_id", commandId,
-                "topic", downlinkTopic(request.getTenantId(), request.getGreenhouseId(), "registry"),
+                "topic", downlinkTopic(tenantId, greenhouseId, "registry"),
                 "device", ZoneDeviceResponse.from(updated.get())
         ));
     }
 
     @PostMapping("/command")
-    public ResponseEntity<Map<String, Object>> command(@Valid @RequestBody ZoneCommandRequest request) {
+    public ResponseEntity<Map<String, Object>> command(@PathVariable("greenhouse_id") String greenhouseId,
+                                                        @Valid @RequestBody ZoneCommandRequest request,
+                                                        Authentication authentication) {
+        String tenantId = AuthContext.requireTenantId(authentication);
+        GreenhouseResponse greenhouse = requireGreenhouse(tenantId, greenhouseId);
+
         String resolvedDeviceId = request.getDeviceId();
 
         if ((resolvedDeviceId == null || resolvedDeviceId.isBlank())
                 && request.getZoneId() != null && !request.getZoneId().isBlank()) {
             resolvedDeviceId = zoneRegistryStore
-                    .findByZoneId(request.getTenantId(), request.getGreenhouseId(), request.getZoneId())
+                    .findByZoneId(tenantId, greenhouseId, request.getZoneId())
                     .map(ZoneDeviceRecord::getDeviceId)
                     .orElse(null);
         }
@@ -146,9 +179,9 @@ public class ZoneController {
         Map<String, Object> payload = new HashMap<>();
         payload.put("command_id", commandId);
         payload.put("type", request.getAction());
-        payload.put("tenant_id", request.getTenantId());
-        payload.put("greenhouse_id", request.getGreenhouseId());
-        payload.put("gateway_id", request.getGreenhouseId());
+        payload.put("tenant_id", tenantId);
+        payload.put("greenhouse_id", greenhouseId);
+        payload.put("gateway_id", greenhouse.gatewayId());
         payload.put("device_id", resolvedDeviceId);
         payload.put("zone_id", request.getZoneId());
         payload.put("issued_at", Instant.now().toString());
@@ -156,8 +189,8 @@ public class ZoneController {
             payload.put("payload", request.getPayload());
         }
 
-        String topic = downlinkTopic(request.getTenantId(), request.getGreenhouseId(), "command");
-        commandService.sendCommand(topic, payload);
+        String topic = downlinkTopic(tenantId, greenhouseId, "command");
+        publishDownlink(topic, payload);
 
         return ResponseEntity.ok(Map.of(
                 "command_id", commandId,
@@ -167,18 +200,28 @@ public class ZoneController {
     }
 
     @GetMapping("/command-ack")
-    public ResponseEntity<CommandAckPayload> commandAck(@RequestParam("command_id") String commandId) {
+    public ResponseEntity<CommandAckPayload> commandAck(@PathVariable("greenhouse_id") String greenhouseId,
+                                                         @RequestParam("command_id") String commandId,
+                                                         Authentication authentication) {
+        String tenantId = AuthContext.requireTenantId(authentication);
+        requireGreenhouse(tenantId, greenhouseId);
+
         return commandAckStore
-                .findByCommandId(commandId)
+                .findByCommandId(commandId, tenantId, greenhouseId)
                 .map(ResponseEntity::ok)
                 .orElseGet(() -> ResponseEntity.notFound().build());
     }
 
     @PostMapping("/sync")
-    public ResponseEntity<Map<String, Object>> sync(@Valid @RequestBody ZoneSyncRequest request) {
+    public ResponseEntity<Map<String, Object>> sync(@PathVariable("greenhouse_id") String greenhouseId,
+                                                     @Valid @RequestBody ZoneSyncRequest request,
+                                                     Authentication authentication) {
+        String tenantId = AuthContext.requireTenantId(authentication);
+        GreenhouseResponse greenhouse = requireGreenhouse(tenantId, greenhouseId);
+
         String commandId = UUID.randomUUID().toString();
 
-        List<Map<String, Object>> zones = zoneRegistryStore.listByGreenhouse(request.getTenantId(), request.getGreenhouseId()).stream()
+        List<Map<String, Object>> zones = zoneRegistryStore.listByGreenhouse(tenantId, greenhouseId).stream()
                 .filter(ZoneDeviceRecord::isAssigned)
                 .map(record -> {
                     Map<String, Object> zone = new HashMap<>();
@@ -192,20 +235,20 @@ public class ZoneController {
                 })
                 .toList();
 
-        String gatewayId = request.gatewayIdOrDefault(request.getGreenhouseId());
+        String gatewayId = request.gatewayIdOrDefault(greenhouse.gatewayId());
 
         Map<String, Object> payload = new HashMap<>();
         payload.put("command_id", commandId);
         payload.put("type", "ZONE_REGISTRY_SYNC");
-        payload.put("tenant_id", request.getTenantId());
-        payload.put("greenhouse_id", request.getGreenhouseId());
+        payload.put("tenant_id", tenantId);
+        payload.put("greenhouse_id", greenhouseId);
         payload.put("gateway_id", gatewayId);
         payload.put("config_version", Instant.now().toString());
         payload.put("issued_at", Instant.now().toString());
         payload.put("zones", zones);
 
-        String topic = downlinkTopic(request.getTenantId(), request.getGreenhouseId(), "registry");
-        commandService.sendCommand(topic, payload);
+        String topic = downlinkTopic(tenantId, greenhouseId, "registry");
+        publishDownlink(topic, payload);
 
         return ResponseEntity.ok(Map.of(
                 "command_id", commandId,
@@ -215,7 +258,24 @@ public class ZoneController {
         ));
     }
 
+    private GreenhouseResponse requireGreenhouse(String tenantId, String greenhouseId) {
+        return greenhouseStore.find(tenantId, greenhouseId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Greenhouse not found."));
+    }
+
     private static String downlinkTopic(String tenantId, String greenhouseId, String stream) {
         return "gms/%s/%s/downlink/%s".formatted(tenantId, greenhouseId, stream);
+    }
+
+    private void publishDownlink(String topic, Object payload) {
+        try {
+            commandService.sendCommand(topic, payload);
+        } catch (Exception ex) {
+            throw new ResponseStatusException(
+                    HttpStatus.SERVICE_UNAVAILABLE,
+                    "Unable to publish command to gateway broker. Verify MQTT connectivity.",
+                    ex
+            );
+        }
     }
 }

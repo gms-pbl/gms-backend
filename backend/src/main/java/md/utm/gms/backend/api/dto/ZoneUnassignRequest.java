@@ -8,14 +8,6 @@ import lombok.Data;
 public class ZoneUnassignRequest {
 
     @NotBlank
-    @JsonProperty("tenant_id")
-    private String tenantId;
-
-    @NotBlank
-    @JsonProperty("greenhouse_id")
-    private String greenhouseId;
-
-    @NotBlank
     @JsonProperty("device_id")
     private String deviceId;
 }

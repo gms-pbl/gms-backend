@@ -9,14 +9,6 @@ import java.util.Map;
 @Data
 public class ZoneCommandRequest {
 
-    @NotBlank
-    @JsonProperty("tenant_id")
-    private String tenantId;
-
-    @NotBlank
-    @JsonProperty("greenhouse_id")
-    private String greenhouseId;
-
     @JsonProperty("zone_id")
     private String zoneId;
 

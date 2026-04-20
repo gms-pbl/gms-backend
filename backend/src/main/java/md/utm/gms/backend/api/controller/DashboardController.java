@@ -1,8 +1,10 @@
 package md.utm.gms.backend.api.controller;
 
 import lombok.RequiredArgsConstructor;
+import md.utm.gms.backend.auth.AuthContext;
 import md.utm.gms.backend.api.dto.SensorReadingResponse;
 import md.utm.gms.backend.store.SensorReadingStore;
+import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -26,10 +28,13 @@ public class DashboardController {
     /** Returns the latest reading snapshot persisted in {@code gms.latest_metric}. */
     @GetMapping("/live")
     public List<SensorReadingResponse> live(@RequestParam(value = "greenhouse_id", required = false) String greenhouseId,
-                                            @RequestParam(value = "zone_id", required = false) String zoneId) {
+                                            @RequestParam(value = "zone_id", required = false) String zoneId,
+                                            Authentication authentication) {
+        String tenantId = AuthContext.requireTenantId(authentication);
+
         if ((greenhouseId != null && !greenhouseId.isBlank()) || (zoneId != null && !zoneId.isBlank())) {
-            return sensorReadingStore.getByScope(greenhouseId, zoneId);
+            return sensorReadingStore.getByScope(tenantId, greenhouseId, zoneId);
         }
-        return sensorReadingStore.getAll();
+        return sensorReadingStore.getAll(tenantId);
     }
 }

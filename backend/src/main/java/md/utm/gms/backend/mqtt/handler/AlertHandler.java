@@ -7,6 +7,7 @@ import md.utm.gms.backend.api.dto.AlertResponse;
 import md.utm.gms.backend.mqtt.dto.AlertPayload;
 import md.utm.gms.backend.store.AlertStore;
 import org.springframework.integration.annotation.ServiceActivator;
+import org.springframework.integration.mqtt.support.MqttHeaders;
 import org.springframework.messaging.Message;
 import org.springframework.stereotype.Component;
 
@@ -33,12 +34,16 @@ public class AlertHandler {
             AlertPayload payload = objectMapper.readValue(
                     message.getPayload(), AlertPayload.class);
 
+            TopicScope scope = TopicScope.from(message.getHeaders().get(MqttHeaders.RECEIVED_TOPIC, String.class));
+
             String id = payload.getAlertId() != null
                     ? payload.getAlertId()
                     : UUID.randomUUID().toString();
 
             alertStore.add(AlertResponse.builder()
                     .id(id)
+                    .tenantId(scope.tenantId)
+                    .greenhouseId(scope.greenhouseId)
                     .severity(payload.getSeverity())
                     .sensorKey(payload.getSensorKey())
                     .message(payload.getMessage())
@@ -52,6 +57,33 @@ public class AlertHandler {
         } catch (Exception e) {
             log.error("Failed to process alert  payload='{}' error='{}'",
                     message.getPayload(), e.getMessage(), e);
+        }
+    }
+
+    private static final class TopicScope {
+        private final String tenantId;
+        private final String greenhouseId;
+
+        private TopicScope(String tenantId, String greenhouseId) {
+            this.tenantId = tenantId;
+            this.greenhouseId = greenhouseId;
+        }
+
+        static TopicScope from(String topic) {
+            if (topic == null || topic.isBlank()) {
+                return new TopicScope("tenant-demo", "greenhouse-demo");
+            }
+
+            String[] segments = topic.split("/");
+            if (segments.length >= 5 && "gms".equals(segments[0]) && "uplink".equals(segments[3])) {
+                return new TopicScope(segments[1], segments[2]);
+            }
+
+            if (segments.length >= 5 && "gms".equals(segments[0])) {
+                return new TopicScope(segments[1], segments[2]);
+            }
+
+            return new TopicScope("tenant-demo", "greenhouse-demo");
         }
     }
 }

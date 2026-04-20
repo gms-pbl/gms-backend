@@ -19,6 +19,8 @@ public class AlertStore {
     private static final RowMapper<AlertResponse> ALERT_ROW_MAPPER = (rs, rowNum) ->
             AlertResponse.builder()
                     .id(rs.getString("id"))
+                    .tenantId(rs.getString("tenant_id"))
+                    .greenhouseId(rs.getString("greenhouse_id"))
                     .severity(rs.getString("severity"))
                     .sensorKey(rs.getString("sensor_key"))
                     .message(rs.getString("message"))
@@ -38,20 +40,26 @@ public class AlertStore {
         }
 
         Instant triggeredAt = alert.getTriggeredAt() != null ? alert.getTriggeredAt() : Instant.now();
+        String tenantId = defaultString(alert.getTenantId(), "tenant-demo");
+        String greenhouseId = defaultString(alert.getGreenhouseId(), "greenhouse-demo");
 
         jdbcTemplate.update(
                 """
                 INSERT INTO gms.alert_event(
                     id,
+                    tenant_id,
+                    greenhouse_id,
                     severity,
                     sensor_key,
                     message,
                     triggered_at,
                     acknowledged,
                     dismissed_at
-                ) VALUES (?, ?, ?, ?, ?, ?, NULL)
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, NULL)
                 ON CONFLICT (id)
                 DO UPDATE SET
+                    tenant_id = EXCLUDED.tenant_id,
+                    greenhouse_id = EXCLUDED.greenhouse_id,
                     severity = EXCLUDED.severity,
                     sensor_key = EXCLUDED.sensor_key,
                     message = EXCLUDED.message,
@@ -60,6 +68,8 @@ public class AlertStore {
                     dismissed_at = NULL
                 """,
                 alert.getId(),
+                tenantId,
+                greenhouseId,
                 defaultString(alert.getSeverity(), "INFO"),
                 alert.getSensorKey(),
                 defaultString(alert.getMessage(), "Alert"),
@@ -68,44 +78,49 @@ public class AlertStore {
         );
     }
 
-    public Optional<AlertResponse> acknowledge(String id) {
+    public Optional<AlertResponse> acknowledge(String tenantId, String id) {
         int updated = jdbcTemplate.update(
                 """
                 UPDATE gms.alert_event
                 SET acknowledged = TRUE
-                WHERE id = ? AND dismissed_at IS NULL
+                WHERE tenant_id = ? AND id = ? AND dismissed_at IS NULL
                 """,
+                tenantId,
                 id
         );
         if (updated == 0) {
             return Optional.empty();
         }
-        return findById(id);
+        return findById(tenantId, id);
     }
 
-    public boolean dismiss(String id) {
+    public boolean dismiss(String tenantId, String id) {
         int updated = jdbcTemplate.update(
                 """
                 UPDATE gms.alert_event
                 SET dismissed_at = NOW()
-                WHERE id = ? AND dismissed_at IS NULL
+                WHERE tenant_id = ? AND id = ? AND dismissed_at IS NULL
                 """,
+                tenantId,
                 id
         );
         return updated > 0;
     }
 
-    public List<AlertResponse> getAll() {
+    public List<AlertResponse> getAll(String tenantId) {
         return jdbcTemplate.query(
                 """
                 SELECT id,
+                       tenant_id,
+                       greenhouse_id,
                        severity,
                        sensor_key,
                        message,
                        triggered_at,
                        acknowledged
                 FROM gms.alert_event
-                WHERE dismissed_at IS NULL
+                WHERE tenant_id = ?
+                  AND dismissed_at IS NULL
                 ORDER BY acknowledged ASC,
                          CASE severity
                              WHEN 'CRITICAL' THEN 0
@@ -115,23 +130,31 @@ public class AlertStore {
                          END,
                          triggered_at DESC
                 """,
-                ALERT_ROW_MAPPER
+                ALERT_ROW_MAPPER,
+                tenantId
         );
     }
 
-    private Optional<AlertResponse> findById(String id) {
+    public List<AlertResponse> getAll() {
+        return getAll("tenant-demo");
+    }
+
+    private Optional<AlertResponse> findById(String tenantId, String id) {
         List<AlertResponse> results = jdbcTemplate.query(
                 """
                 SELECT id,
+                       tenant_id,
+                       greenhouse_id,
                        severity,
                        sensor_key,
                        message,
                        triggered_at,
                        acknowledged
                 FROM gms.alert_event
-                WHERE id = ? AND dismissed_at IS NULL
+                WHERE tenant_id = ? AND id = ? AND dismissed_at IS NULL
                 """,
                 ALERT_ROW_MAPPER,
+                tenantId,
                 id
         );
 
