@@ -1,5 +1,7 @@
 package md.utm.gms.backend.store;
 
+import md.utm.gms.backend.api.dto.SensorHistoryPoint;
+import md.utm.gms.backend.api.dto.SensorHistoryResponse;
 import md.utm.gms.backend.api.dto.SensorReadingResponse;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.core.RowMapper;
@@ -166,6 +168,101 @@ public class SensorReadingStore {
 
     public List<SensorReadingResponse> getByScope(String greenhouseId, String zoneId) {
         return getByScope("tenant-demo", greenhouseId, zoneId);
+    }
+
+    /**
+     * Returns a bucketed or raw time-series for a single sensor key.
+     *
+     * <p>Granularity options:
+     * <ul>
+     *   <li>{@code raw}    — individual readings, capped at 1 000 rows</li>
+     *   <li>{@code minute} — 1-minute averages via {@code date_trunc('minute', …)}</li>
+     *   <li>{@code hourly} — 1-hour averages (default)</li>
+     *   <li>{@code daily}  — 1-day averages</li>
+     * </ul>
+     *
+     * <p>Tenant isolation is enforced at the greenhouse level: the caller must
+     * have already validated that {@code greenhouseId} belongs to the tenant.
+     */
+    public SensorHistoryResponse getHistory(String greenhouseId,
+                                            String zoneId,
+                                            String deviceId,
+                                            String sensorKey,
+                                            Instant from,
+                                            Instant to,
+                                            String granularity) {
+        List<Object> args = new ArrayList<>();
+        args.add(greenhouseId);
+        args.add(sensorKey);
+        args.add(Timestamp.from(from));
+        args.add(Timestamp.from(to));
+
+        StringBuilder conditions = new StringBuilder(
+                "WHERE greenhouse_id = ? AND sensor_key = ? AND observed_at >= ? AND observed_at <= ?"
+        );
+        if (!isBlank(zoneId)) {
+            conditions.append(" AND zone_id = ?");
+            args.add(zoneId.trim());
+        }
+        if (!isBlank(deviceId)) {
+            conditions.append(" AND device_id = ?");
+            args.add(deviceId.trim());
+        }
+
+        String sql;
+        if ("raw".equalsIgnoreCase(granularity)) {
+            sql = "SELECT observed_at AS ts, value, unit "
+                    + "FROM gms.telemetry_reading "
+                    + conditions
+                    + " ORDER BY observed_at ASC LIMIT 1000";
+        } else {
+            // toDateTruncUnit validates the value — safe to embed as a literal
+            String truncUnit = toDateTruncUnit(granularity);
+            sql = "SELECT date_trunc('" + truncUnit + "', observed_at) AS ts, "
+                    + "AVG(value) AS value, MIN(unit) AS unit "
+                    + "FROM gms.telemetry_reading "
+                    + conditions
+                    + " GROUP BY ts ORDER BY ts ASC";
+        }
+
+        record Row(Instant ts, double value, String unit) {}
+
+        List<Row> rows = jdbcTemplate.query(sql,
+                (rs, n) -> new Row(
+                        rs.getTimestamp("ts").toInstant(),
+                        rs.getDouble("value"),
+                        rs.getString("unit")),
+                args.toArray());
+
+        String unit = rows.isEmpty() ? "raw" : rows.get(0).unit();
+        List<SensorHistoryPoint> points = rows.stream()
+                .map(r -> SensorHistoryPoint.builder()
+                        .timestamp(r.ts())
+                        .value(r.value())
+                        .build())
+                .toList();
+
+        return SensorHistoryResponse.builder()
+                .sensorKey(sensorKey)
+                .greenhouseId(greenhouseId)
+                .zoneId(isBlank(zoneId) ? null : zoneId.trim())
+                .deviceId(isBlank(deviceId) ? null : deviceId.trim())
+                .unit(unit)
+                .granularity(granularity.toLowerCase())
+                .from(from)
+                .to(to)
+                .points(points)
+                .build();
+    }
+
+    /** Maps user-supplied granularity to a {@code date_trunc} precision literal.
+     *  Only ever returns one of three hardcoded strings — safe to embed in SQL. */
+    private static String toDateTruncUnit(String granularity) {
+        return switch (granularity.toLowerCase()) {
+            case "minute"       -> "minute";
+            case "daily", "day" -> "day";
+            default             -> "hour"; // covers "hourly", "hour", unknown
+        };
     }
 
     private static String defaultString(String value, String fallback) {
