@@ -15,6 +15,23 @@ public class ThresholdStore {
 
     private static final TypeReference<Map<String, Object>> MAP_TYPE = new TypeReference<>() {};
 
+    /**
+     * Returned when a zone has no saved thresholds yet.
+     * Values are typical ranges for a temperate vegetable greenhouse.
+     */
+    private static final Map<String, Object> DEFAULTS = Map.of(
+        "air_temperature", levels( 18,  28,  12,  34,   5,  40),
+        "air_humidity",    levels( 50,  75,  35,  85,  20,  95),
+        "soil_moisture",   levels( 40,  70,  25,  80,  10,  90),
+        "soil_temp",       levels( 15,  25,  10,  30,   5,  35),
+        "soil_ph",         levels(6.0, 7.0, 5.5, 7.5, 5.0, 8.0),
+        "soil_ec",         levels(0.8, 2.5, 0.5, 3.5, 0.2, 5.0),
+        "soil_nitrogen",   levels(100, 200,  50, 250,  20, 300),
+        "soil_phosphorus", levels( 15,  40,   8,  60,   3,  80),
+        "soil_potassium",  levels(150, 300,  80, 400,  40, 500),
+        "soil_salinity",   levels(  0, 2.0,   0, 4.0,   0, 6.0)
+    );
+
     private final JdbcTemplate jdbcTemplate;
     private final ObjectMapper objectMapper;
 
@@ -35,7 +52,7 @@ public class ThresholdStore {
         );
 
         if (rows.isEmpty()) {
-            return new LinkedHashMap<>();
+            return DEFAULTS;
         }
         return fromJson(rows.get(0));
     }
@@ -69,5 +86,16 @@ public class ThresholdStore {
         } catch (JsonProcessingException e) {
             return "{}";
         }
+    }
+
+    private static Map<String, Object> levels(
+            double normalMin, double normalMax,
+            double warnMin,   double warnMax,
+            double critMin,   double critMax) {
+        return Map.of(
+            "normal",   Map.of("min", normalMin, "max", normalMax),
+            "warn",     Map.of("min", warnMin,   "max", warnMax),
+            "critical", Map.of("min", critMin,   "max", critMax)
+        );
     }
 }
