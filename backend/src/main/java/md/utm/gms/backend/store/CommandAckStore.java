@@ -36,11 +36,12 @@ public class CommandAckStore {
                     gateway_id,
                     device_id,
                     zone_id,
+                    config_version,
                     status,
                     reason,
                     ack_timestamp,
                     updated_at
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())
                 ON CONFLICT (command_id)
                 DO UPDATE SET
                     event_id = EXCLUDED.event_id,
@@ -50,6 +51,7 @@ public class CommandAckStore {
                     gateway_id = EXCLUDED.gateway_id,
                     device_id = EXCLUDED.device_id,
                     zone_id = EXCLUDED.zone_id,
+                    config_version = EXCLUDED.config_version,
                     status = EXCLUDED.status,
                     reason = EXCLUDED.reason,
                     ack_timestamp = EXCLUDED.ack_timestamp,
@@ -63,6 +65,7 @@ public class CommandAckStore {
                 payload.getGatewayId(),
                 payload.getDeviceId(),
                 payload.getZoneId(),
+                payload.getConfigVersion(),
                 payload.getStatus(),
                 payload.getReason(),
                 Timestamp.from(ackTimestamp)
@@ -84,6 +87,7 @@ public class CommandAckStore {
                        gateway_id,
                        device_id,
                        zone_id,
+                       config_version,
                        status,
                        reason,
                        ack_timestamp
@@ -100,6 +104,7 @@ public class CommandAckStore {
                     payload.setGatewayId(rs.getString("gateway_id"));
                     payload.setDeviceId(rs.getString("device_id"));
                     payload.setZoneId(rs.getString("zone_id"));
+                    payload.setConfigVersion(rs.getObject("config_version", Long.class));
                     payload.setStatus(rs.getString("status"));
                     payload.setReason(rs.getString("reason"));
                     Timestamp ackTimestamp = rs.getTimestamp("ack_timestamp");
@@ -132,6 +137,7 @@ public class CommandAckStore {
                        gateway_id,
                        device_id,
                        zone_id,
+                       config_version,
                        status,
                        reason,
                        ack_timestamp
@@ -150,6 +156,7 @@ public class CommandAckStore {
                     payload.setGatewayId(rs.getString("gateway_id"));
                     payload.setDeviceId(rs.getString("device_id"));
                     payload.setZoneId(rs.getString("zone_id"));
+                    payload.setConfigVersion(rs.getObject("config_version", Long.class));
                     payload.setStatus(rs.getString("status"));
                     payload.setReason(rs.getString("reason"));
                     Timestamp ackTimestamp = rs.getTimestamp("ack_timestamp");

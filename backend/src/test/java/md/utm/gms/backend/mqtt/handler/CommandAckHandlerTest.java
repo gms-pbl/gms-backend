@@ -4,6 +4,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import md.utm.gms.backend.mqtt.dto.CommandAckPayload;
 import md.utm.gms.backend.store.CommandAckStore;
+import md.utm.gms.backend.store.ThresholdApplyStatusStore;
 import org.junit.jupiter.api.Test;
 import org.springframework.integration.support.MessageBuilder;
 
@@ -17,7 +18,7 @@ class CommandAckHandlerTest {
     void validAckPayloadIsForwardedToStore() {
         ObjectMapper objectMapper = new ObjectMapper().registerModule(new JavaTimeModule());
         RecordingCommandAckStore commandAckStore = new RecordingCommandAckStore();
-        CommandAckHandler handler = new CommandAckHandler(objectMapper, commandAckStore);
+        CommandAckHandler handler = new CommandAckHandler(objectMapper, commandAckStore, new RecordingThresholdApplyStatusStore());
 
         handler.handle(MessageBuilder.withPayload("""
                 {
@@ -45,7 +46,7 @@ class CommandAckHandlerTest {
     void invalidAckPayloadIsIgnored() {
         ObjectMapper objectMapper = new ObjectMapper().registerModule(new JavaTimeModule());
         RecordingCommandAckStore commandAckStore = new RecordingCommandAckStore();
-        CommandAckHandler handler = new CommandAckHandler(objectMapper, commandAckStore);
+        CommandAckHandler handler = new CommandAckHandler(objectMapper, commandAckStore, new RecordingThresholdApplyStatusStore());
 
         handler.handle(MessageBuilder.withPayload("{invalid-json}").build());
 
@@ -71,6 +72,17 @@ class CommandAckHandlerTest {
                 return Optional.empty();
             }
             return Optional.of(payload);
+        }
+    }
+
+    private static final class RecordingThresholdApplyStatusStore extends ThresholdApplyStatusStore {
+        private RecordingThresholdApplyStatusStore() {
+            super(null);
+        }
+
+        @Override
+        public boolean updateFromAck(CommandAckPayload payload) {
+            return false;
         }
     }
 }
