@@ -4,6 +4,7 @@ import lombok.RequiredArgsConstructor;
 import md.utm.gms.backend.auth.AuthContext;
 import md.utm.gms.backend.api.dto.SensorHistoryResponse;
 import md.utm.gms.backend.api.dto.SensorReadingResponse;
+import md.utm.gms.backend.store.AlertStore;
 import md.utm.gms.backend.store.SensorReadingStore;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
@@ -15,6 +16,7 @@ import org.springframework.web.bind.annotation.RestController;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.List;
+import java.util.Map;
 
 /**
  * Provides the real-time sensor snapshot consumed by the React dashboard.
@@ -28,6 +30,7 @@ import java.util.List;
 public class DashboardController {
 
     private final SensorReadingStore sensorReadingStore;
+    private final AlertStore alertStore;
 
     /** Returns the latest reading snapshot persisted in {@code gms.latest_metric}. */
     @GetMapping("/live")
@@ -35,11 +38,16 @@ public class DashboardController {
                                             @RequestParam(value = "zone_id", required = false) String zoneId,
                                             Authentication authentication) {
         String tenantId = AuthContext.requireTenantId(authentication);
+        List<SensorReadingResponse> readings =
+                (greenhouseId != null && !greenhouseId.isBlank()) || (zoneId != null && !zoneId.isBlank())
+                        ? sensorReadingStore.getByScope(tenantId, greenhouseId, zoneId)
+                        : sensorReadingStore.getAll(tenantId);
 
-        if ((greenhouseId != null && !greenhouseId.isBlank()) || (zoneId != null && !zoneId.isBlank())) {
-            return sensorReadingStore.getByScope(tenantId, greenhouseId, zoneId);
+        Map<String, String> latestSeverityBySensor = alertStore.getLatestSeverityByScope(tenantId, greenhouseId, zoneId);
+        for (SensorReadingResponse reading : readings) {
+            reading.setStatus(resolveStatus(reading, latestSeverityBySensor));
         }
-        return sensorReadingStore.getAll(tenantId);
+        return readings;
     }
 
     /**
@@ -89,5 +97,18 @@ public class DashboardController {
         } catch (Exception e) {
             return fallback;
         }
+    }
+
+    private static String resolveStatus(SensorReadingResponse reading, Map<String, String> latestSeverityBySensor) {
+        String severity = latestSeverityBySensor.get(AlertStore.severityKey(
+                reading.getGreenhouseId(),
+                reading.getZoneId(),
+                reading.getDeviceId(),
+                reading.getSensorKey()
+        ));
+        if (severity == null || severity.isBlank()) {
+            return reading.getStatus();
+        }
+        return severity;
     }
 }
