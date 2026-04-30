@@ -1,6 +1,7 @@
 package md.utm.gms.backend.api.controller;
 
 import jakarta.validation.Valid;
+import md.utm.gms.backend.api.dto.ThresholdConfigResponse;
 import md.utm.gms.backend.api.dto.ZoneAssignRequest;
 import md.utm.gms.backend.api.dto.ZoneCommandRequest;
 import md.utm.gms.backend.api.dto.ZoneDeviceResponse;
@@ -13,6 +14,8 @@ import md.utm.gms.backend.mqtt.CommandService;
 import md.utm.gms.backend.mqtt.dto.CommandAckPayload;
 import md.utm.gms.backend.store.CommandAckStore;
 import md.utm.gms.backend.store.GreenhouseStore;
+import md.utm.gms.backend.store.ThresholdApplyStatusStore;
+import md.utm.gms.backend.store.ThresholdStore;
 import md.utm.gms.backend.zones.ZoneDeviceRecord;
 import md.utm.gms.backend.zones.ZoneRegistryStore;
 import org.springframework.http.HttpStatus;
@@ -29,9 +32,11 @@ import org.springframework.web.server.ResponseStatusException;
 
 import java.time.Instant;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
 
 @RestController
@@ -42,15 +47,21 @@ public class ZoneController {
     private final CommandService commandService;
     private final CommandAckStore commandAckStore;
     private final GreenhouseStore greenhouseStore;
+    private final ThresholdStore thresholdStore;
+    private final ThresholdApplyStatusStore thresholdApplyStatusStore;
 
     public ZoneController(ZoneRegistryStore zoneRegistryStore,
                           CommandService commandService,
                           CommandAckStore commandAckStore,
-                          GreenhouseStore greenhouseStore) {
+                          GreenhouseStore greenhouseStore,
+                          ThresholdStore thresholdStore,
+                          ThresholdApplyStatusStore thresholdApplyStatusStore) {
         this.zoneRegistryStore = zoneRegistryStore;
         this.commandService = commandService;
         this.commandAckStore = commandAckStore;
         this.greenhouseStore = greenhouseStore;
+        this.thresholdStore = thresholdStore;
+        this.thresholdApplyStatusStore = thresholdApplyStatusStore;
     }
 
     @GetMapping("/registry")
@@ -108,6 +119,8 @@ public class ZoneController {
         }
 
         publishDownlink(downlinkTopic(tenantId, greenhouseId, "registry"), command);
+
+        ensureThresholdConfig(tenantId, greenhouseId, updated.getZoneId(), greenhouse);
 
         return ResponseEntity.ok(Map.of(
                 "command_id", commandId,
@@ -250,6 +263,15 @@ public class ZoneController {
         String topic = downlinkTopic(tenantId, greenhouseId, "registry");
         publishDownlink(topic, payload);
 
+        Set<String> syncedZoneIds = new HashSet<>();
+        for (Map<String, Object> zone : zones) {
+            Object zid = zone.get("zone_id");
+            if (zid != null) syncedZoneIds.add(zid.toString());
+        }
+        for (String zid : syncedZoneIds) {
+            ensureThresholdConfig(tenantId, greenhouseId, zid, greenhouse);
+        }
+
         return ResponseEntity.ok(Map.of(
                 "command_id", commandId,
                 "topic", topic,
@@ -277,5 +299,66 @@ public class ZoneController {
                     ex
             );
         }
+    }
+
+    /**
+     * If no threshold config row exists for the given zone, saves default thresholds
+     * and publishes a downlink command so the edge engine caches them immediately.
+     */
+    private void ensureThresholdConfig(String tenantId, String greenhouseId, String zoneId,
+                                       GreenhouseResponse greenhouse) {
+        if (zoneId == null || zoneId.isBlank()) return;
+
+        ThresholdConfigResponse existing = thresholdStore.get(tenantId, greenhouseId, zoneId);
+        if (existing.getConfigVersion() > 0) {
+            // Config already persisted — push existing config to edge in case it was missed
+            pushThresholdDownlink(tenantId, greenhouseId, zoneId, greenhouse, existing);
+            return;
+        }
+
+        // No config yet — save defaults and push
+        String commandId = UUID.randomUUID().toString();
+        try {
+            ThresholdConfigResponse saved = thresholdStore.put(
+                    tenantId, greenhouseId, zoneId,
+                    thresholdStore.defaultThresholds(),
+                    "system", commandId);
+
+            String gatewayId = defaultString(greenhouse.gatewayId(), greenhouse.greenhouseId());
+            thresholdApplyStatusStore.markPending(
+                    tenantId, greenhouseId, zoneId, gatewayId,
+                    saved.getConfigVersion(), commandId);
+
+            pushThresholdDownlink(tenantId, greenhouseId, zoneId, greenhouse, saved);
+        } catch (Exception e) {
+            // Non-fatal: zone assignment succeeded even if threshold push fails
+        }
+    }
+
+    private void pushThresholdDownlink(String tenantId, String greenhouseId, String zoneId,
+                                       GreenhouseResponse greenhouse, ThresholdConfigResponse config) {
+        String gatewayId = defaultString(greenhouse.gatewayId(), greenhouse.greenhouseId());
+        String commandId = config.getCommandId() != null ? config.getCommandId() : UUID.randomUUID().toString();
+
+        Map<String, Object> downlink = new HashMap<>();
+        downlink.put("command_id", commandId);
+        downlink.put("type", "THRESHOLD_CONFIG_UPDATE");
+        downlink.put("tenant_id", tenantId);
+        downlink.put("greenhouse_id", greenhouseId);
+        downlink.put("gateway_id", gatewayId);
+        downlink.put("zone_id", zoneId);
+        downlink.put("config_version", config.getConfigVersion());
+        downlink.put("issued_at", Instant.now().toString());
+        downlink.put("thresholds", config.getThresholds());
+
+        try {
+            commandService.sendCommand(downlinkTopic(tenantId, greenhouseId, "threshold"), downlink);
+        } catch (Exception ignored) {
+            // Non-fatal: threshold push is best-effort during zone assignment
+        }
+    }
+
+    private static String defaultString(String value, String fallback) {
+        return value == null || value.isBlank() ? fallback : value;
     }
 }

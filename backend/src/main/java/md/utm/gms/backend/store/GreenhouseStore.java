@@ -136,6 +136,16 @@ public class GreenhouseStore {
                 greenhouseId
         );
         jdbcTemplate.update(
+                "DELETE FROM gms.threshold_apply_status WHERE tenant_id = ? AND greenhouse_id = ?",
+                tenantId,
+                greenhouseId
+        );
+        jdbcTemplate.update(
+                "DELETE FROM gms.zone_threshold WHERE tenant_id = ? AND greenhouse_id = ?",
+                tenantId,
+                greenhouseId
+        );
+        jdbcTemplate.update(
                 "DELETE FROM gms.latest_metric WHERE tenant_id = ? AND greenhouse_id = ?",
                 tenantId,
                 greenhouseId
