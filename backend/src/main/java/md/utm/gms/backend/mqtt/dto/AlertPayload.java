@@ -15,7 +15,7 @@ import java.time.Instant;
  * <pre>
  * {
  *   "alert_id":   "uuid (optional — generated server-side if absent)",
- *   "sensor_key": "soil_moisture | air_temperature | ...",
+ *   "sensor_key": "soil_moist | air_temp | ...",
  *   "severity":   "CRITICAL | WARNING | INFO",
  *   "message":    "Human-readable description of the alert condition",
  *   "timestamp":  "2024-06-01T12:00:00.000Z"
@@ -36,6 +36,29 @@ public class AlertPayload {
 
     @JsonProperty("sensor_key")
     private String sensorKey;
+
+    @JsonProperty("gateway_id")
+    private String gatewayId;
+
+    @JsonProperty("zone_id")
+    private String zoneId;
+
+    @JsonProperty("device_id")
+    private String deviceId;
+
+    private String source;
+
+    @JsonProperty("threshold_version")
+    private Long thresholdVersion;
+
+    @JsonProperty("current_value")
+    private Double currentValue;
+
+    @JsonProperty("threshold_min")
+    private Double thresholdMin;
+
+    @JsonProperty("threshold_max")
+    private Double thresholdMax;
 
     private String severity;
 

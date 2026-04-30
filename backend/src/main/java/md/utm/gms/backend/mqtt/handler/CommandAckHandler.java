@@ -3,6 +3,7 @@ package md.utm.gms.backend.mqtt.handler;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import md.utm.gms.backend.mqtt.dto.CommandAckPayload;
 import md.utm.gms.backend.store.CommandAckStore;
+import md.utm.gms.backend.store.ThresholdApplyStatusStore;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.integration.annotation.ServiceActivator;
@@ -16,10 +17,14 @@ public class CommandAckHandler {
 
     private final ObjectMapper objectMapper;
     private final CommandAckStore commandAckStore;
+    private final ThresholdApplyStatusStore thresholdApplyStatusStore;
 
-    public CommandAckHandler(ObjectMapper objectMapper, CommandAckStore commandAckStore) {
+    public CommandAckHandler(ObjectMapper objectMapper,
+                             CommandAckStore commandAckStore,
+                             ThresholdApplyStatusStore thresholdApplyStatusStore) {
         this.objectMapper = objectMapper;
         this.commandAckStore = commandAckStore;
+        this.thresholdApplyStatusStore = thresholdApplyStatusStore;
     }
 
     @ServiceActivator(inputChannel = "commandAckChannel")
@@ -33,6 +38,7 @@ public class CommandAckHandler {
             }
 
             commandAckStore.update(payload);
+            thresholdApplyStatusStore.updateFromAck(payload);
             log.info("Command ACK command_id={} status={} device={} zone={} reason={} ts={}",
                     payload.getCommandId(),
                     payload.getStatus(),

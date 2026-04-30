@@ -44,9 +44,17 @@ public class AlertHandler {
                     .id(id)
                     .tenantId(scope.tenantId)
                     .greenhouseId(scope.greenhouseId)
+                    .gatewayId(payload.getGatewayId())
+                    .zoneId(payload.getZoneId())
+                    .deviceId(payload.getDeviceId())
                     .severity(payload.getSeverity())
                     .sensorKey(payload.getSensorKey())
                     .message(payload.getMessage())
+                    .source(defaultString(payload.getSource(), "edge"))
+                    .thresholdVersion(payload.getThresholdVersion())
+                    .currentValue(payload.getCurrentValue())
+                    .thresholdMin(payload.getThresholdMin())
+                    .thresholdMax(payload.getThresholdMax())
                     .triggeredAt(payload.getTimestamp() != null ? payload.getTimestamp() : Instant.now())
                     .acknowledged(false)
                     .build());
@@ -85,5 +93,9 @@ public class AlertHandler {
 
             return new TopicScope("tenant-demo", "greenhouse-demo");
         }
+    }
+
+    private static String defaultString(String value, String fallback) {
+        return value == null || value.isBlank() ? fallback : value;
     }
 }

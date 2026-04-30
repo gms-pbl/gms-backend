@@ -29,6 +29,9 @@ public class CommandAckPayload {
     @JsonProperty("zone_id")
     private String zoneId;
 
+    @JsonProperty("config_version")
+    private Long configVersion;
+
     private String status;
 
     private String reason;
@@ -101,6 +104,14 @@ public class CommandAckPayload {
 
     public String getStatus() {
         return status;
+    }
+
+    public Long getConfigVersion() {
+        return configVersion;
+    }
+
+    public void setConfigVersion(Long configVersion) {
+        this.configVersion = configVersion;
     }
 
     public void setStatus(String status) {
