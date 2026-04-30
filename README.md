@@ -114,6 +114,9 @@ cd backend/backend
 - `POST /v1/g/{greenhouse_id}/zones/sync`
 - `POST /v1/g/{greenhouse_id}/zones/command`
 - `GET /v1/g/{greenhouse_id}/zones/command-ack?command_id=...`
+- `GET /v1/g/{greenhouse_id}/zones/{zone_id}/thresholds`
+- `PUT /v1/g/{greenhouse_id}/zones/{zone_id}/thresholds`
+- `GET /v1/g/{greenhouse_id}/zones/{zone_id}/thresholds/status`
 
 ### Dashboard / Alerts
 
@@ -130,11 +133,13 @@ cd backend/backend
 - `gms/{tenant}/{greenhouse}/uplink/registry`
 - `gms/{tenant}/{greenhouse}/uplink/status`
 - `gms/{tenant}/{greenhouse}/uplink/command_ack`
+- `gms/{tenant}/{greenhouse}/uplink/alert`
 
 ### Downlink (backend -> gateway)
 
 - `gms/{tenant}/{greenhouse}/downlink/registry`
 - `gms/{tenant}/{greenhouse}/downlink/command`
+- `gms/{tenant}/{greenhouse}/downlink/threshold`
 
 Detailed payload contract:
 
@@ -168,6 +173,8 @@ curl -sS -X POST http://localhost:8081/v1/g/greenhouse-demo/zones/assign \
 - `gms.tenant`, `gms.app_user`, `gms.tenant_membership`, `gms.greenhouse`
 - `gms.zone_device` - discovered/assigned registry state
 - `gms.command_ack` - latest command ack by `command_id`
+- `gms.zone_threshold` - zone-scoped threshold config and version
+- `gms.threshold_apply_status` - gateway apply status by threshold version
 - `gms.telemetry_reading` - time-series history (Timescale hypertable)
 - `gms.latest_metric` - latest per-device sensor snapshot
 - `gms.alert_event` - active/acknowledged/dismissed alerts

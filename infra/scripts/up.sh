@@ -23,7 +23,8 @@ for arg in "$@"; do
 done
 
 cd "${INFRA_ROOT}"
-docker compose up -d "${UP_ARGS[@]}"
+docker compose pull
+docker compose up -d --pull always --force-recreate "${UP_ARGS[@]}"
 
 if [[ "$WATCH_LOGS" == true ]]; then
   if [[ ${#LOG_SERVICES[@]} -gt 0 ]]; then

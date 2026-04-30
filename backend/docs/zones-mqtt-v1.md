@@ -19,11 +19,13 @@ Identity hierarchy:
 - `registry` - discovery and assignment lifecycle events for zone management.
 - `status` - gateway heartbeat and connectivity state.
 - `command_ack` - command correlation and execution status.
+- `alert` - gateway-generated threshold transition alerts.
 
 ### Downlink streams
 
 - `registry` - assignment operations (`ASSIGN_ZONE`, `UNASSIGN_ZONE`, `ZONE_REGISTRY_SYNC`).
 - `command` - semantic action requests to a specific zone/device.
+- `threshold` - zone-scoped threshold config update.
 
 ## Direction and Responsibility
 
@@ -33,8 +35,10 @@ Identity hierarchy:
 | `.../uplink/registry` | gateway | backend | keep discovered/assigned state current |
 | `.../uplink/status` | gateway | backend | monitor gateway availability |
 | `.../uplink/command_ack` | gateway | backend | close command loop with status |
+| `.../uplink/alert` | gateway | backend | persist threshold transition alerts |
 | `.../downlink/registry` | backend | gateway | apply zone registry changes |
 | `.../downlink/command` | backend | gateway | execute device-level action |
+| `.../downlink/threshold` | backend | gateway | apply one zone threshold version |
 
 Supported uplink streams:
 
@@ -42,11 +46,13 @@ Supported uplink streams:
 - `registry`
 - `status`
 - `command_ack`
+- `alert`
 
 Supported downlink streams:
 
 - `registry`
 - `command`
+- `threshold`
 
 ## Registry Discovery (uplink/registry)
 
@@ -161,6 +167,68 @@ Downlink command (`downlink/command`) is semantic and device-scoped:
 }
 ```
 
+## Threshold Config Update (downlink/threshold)
+
+Threshold updates are zone-scoped. The backend publishes one zone per command to avoid resending a full gateway snapshot.
+
+```json
+{
+  "command_id": "10c5b2e1-9f1e-43d1-8f39-c14d4dc42b6b",
+  "type": "THRESHOLD_CONFIG_UPDATE",
+  "tenant_id": "tenant-demo",
+  "greenhouse_id": "greenhouse-demo",
+  "gateway_id": "greenhouse-demo",
+  "zone_id": "tomato-west",
+  "config_version": 7,
+  "issued_at": "2026-04-16T12:30:00Z",
+  "thresholds": {
+    "air_temp": {
+      "normal": { "min": 18, "max": 28 },
+      "warn": { "min": 12, "max": 34 },
+      "critical": { "min": 5, "max": 40 }
+    }
+  }
+}
+```
+
+Gateway ACK reuses `uplink/command_ack` with `type = THRESHOLD_CONFIG` and includes `config_version`.
+
+```json
+{
+  "event_id": "ad1cf3c1-30a8-4b5c-8980-a75c15c881c4",
+  "type": "THRESHOLD_CONFIG",
+  "tenant_id": "tenant-demo",
+  "greenhouse_id": "greenhouse-demo",
+  "gateway_id": "greenhouse-demo",
+  "command_id": "10c5b2e1-9f1e-43d1-8f39-c14d4dc42b6b",
+  "zone_id": "tomato-west",
+  "config_version": 7,
+  "status": "APPLIED",
+  "reason": "Applied threshold config v7 for zone tomato-west",
+  "timestamp": "2026-04-16T12:30:01Z"
+}
+```
+
+## Threshold Alert (uplink/alert)
+
+```json
+{
+  "alert_id": "089a2a6b-c057-4f89-b6bf-18924793ffb4",
+  "gateway_id": "greenhouse-demo",
+  "zone_id": "tomato-west",
+  "device_id": "6fd17fb0-7a0f-45c7-b22c-3da2be0ae8db",
+  "sensor_key": "air_temp",
+  "severity": "CRITICAL",
+  "message": "air_temp critical high: 41.20 > 40.00.",
+  "source": "edge",
+  "threshold_version": 7,
+  "current_value": 41.2,
+  "threshold_min": 5,
+  "threshold_max": 40,
+  "timestamp": "2026-04-16T12:31:00Z"
+}
+```
+
 Gateway ack (`uplink/command_ack`) returns result/correlation:
 
 ```json
@@ -209,3 +277,5 @@ The gateway also accepts explicit low-level output payloads:
 8. Operator sends command via `POST /v1/zones/command`.
 9. Backend sends downlink command; gateway translates/forwards to local output topic.
 10. Gateway publishes `COMMAND_ACK` to `gms ... uplink command_ack`.
+11. Operator saves thresholds via REST; backend publishes one `downlink/threshold` for that zone.
+12. Gateway persists the version, ACKs it, evaluates future telemetry, and publishes `uplink/alert` on severity transitions.
