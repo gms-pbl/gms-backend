@@ -4,10 +4,15 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 
 public record GreenhouseUpdateRequest(
         String name,
-        @JsonProperty("gateway_id") String gatewayId
+        @JsonProperty("gateway_id") String gatewayId,
+        Double latitude,
+        Double longitude
 ) {
 
     public boolean hasUpdates() {
-        return (name != null && !name.isBlank()) || (gatewayId != null && !gatewayId.isBlank());
+        return (name != null && !name.isBlank())
+                || (gatewayId != null && !gatewayId.isBlank())
+                || latitude != null
+                || longitude != null;
     }
 }

@@ -12,15 +12,22 @@ import java.util.Optional;
 @Component
 public class GreenhouseStore {
 
-    private static final RowMapper<GreenhouseResponse> GREENHOUSE_MAPPER = (rs, rowNum) ->
-            new GreenhouseResponse(
-                    rs.getString("tenant_id"),
-                    rs.getString("greenhouse_id"),
-                    rs.getString("gateway_id"),
-                    rs.getString("name"),
-                    rs.getTimestamp("created_at").toInstant(),
-                    rs.getTimestamp("updated_at").toInstant()
-            );
+    private static final RowMapper<GreenhouseResponse> GREENHOUSE_MAPPER = (rs, rowNum) -> {
+        double latRaw = rs.getDouble("latitude");
+        Double lat = rs.wasNull() ? null : latRaw;
+        double lonRaw = rs.getDouble("longitude");
+        Double lon = rs.wasNull() ? null : lonRaw;
+        return new GreenhouseResponse(
+                rs.getString("tenant_id"),
+                rs.getString("greenhouse_id"),
+                rs.getString("gateway_id"),
+                rs.getString("name"),
+                lat,
+                lon,
+                rs.getTimestamp("created_at").toInstant(),
+                rs.getTimestamp("updated_at").toInstant()
+        );
+    };
 
     private final JdbcTemplate jdbcTemplate;
 
@@ -31,7 +38,7 @@ public class GreenhouseStore {
     public List<GreenhouseResponse> listByTenant(String tenantId) {
         return jdbcTemplate.query(
                 """
-                SELECT tenant_id, greenhouse_id, gateway_id, name, created_at, updated_at
+                SELECT tenant_id, greenhouse_id, gateway_id, name, latitude, longitude, created_at, updated_at
                 FROM gms.greenhouse
                 WHERE tenant_id = ?
                 ORDER BY created_at ASC
@@ -44,7 +51,7 @@ public class GreenhouseStore {
     public Optional<GreenhouseResponse> find(String tenantId, String greenhouseId) {
         List<GreenhouseResponse> matches = jdbcTemplate.query(
                 """
-                SELECT tenant_id, greenhouse_id, gateway_id, name, created_at, updated_at
+                SELECT tenant_id, greenhouse_id, gateway_id, name, latitude, longitude, created_at, updated_at
                 FROM gms.greenhouse
                 WHERE tenant_id = ? AND greenhouse_id = ?
                 """,
@@ -72,16 +79,20 @@ public class GreenhouseStore {
     public GreenhouseResponse create(String tenantId,
                                      String greenhouseId,
                                      String gatewayId,
-                                     String name) {
+                                     String name,
+                                     Double latitude,
+                                     Double longitude) {
         jdbcTemplate.update(
                 """
-                INSERT INTO gms.greenhouse(tenant_id, greenhouse_id, gateway_id, name)
-                VALUES (?, ?, ?, ?)
+                INSERT INTO gms.greenhouse(tenant_id, greenhouse_id, gateway_id, name, latitude, longitude)
+                VALUES (?, ?, ?, ?, ?, ?)
                 """,
                 tenantId,
                 greenhouseId,
                 gatewayId,
-                name
+                name,
+                latitude,
+                longitude
         );
 
         return find(tenantId, greenhouseId)
@@ -91,17 +102,23 @@ public class GreenhouseStore {
     public Optional<GreenhouseResponse> update(String tenantId,
                                                String greenhouseId,
                                                String name,
-                                               String gatewayId) {
+                                               String gatewayId,
+                                               Double latitude,
+                                               Double longitude) {
         int updated = jdbcTemplate.update(
                 """
                 UPDATE gms.greenhouse
                 SET name = COALESCE(?, name),
                     gateway_id = COALESCE(?, gateway_id),
+                    latitude = COALESCE(?, latitude),
+                    longitude = COALESCE(?, longitude),
                     updated_at = NOW()
                 WHERE tenant_id = ? AND greenhouse_id = ?
                 """,
                 blankToNull(name),
                 blankToNull(gatewayId),
+                latitude,
+                longitude,
                 tenantId,
                 greenhouseId
         );
