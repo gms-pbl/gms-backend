@@ -24,6 +24,7 @@ public class GreenhouseStore {
                 rs.getString("name"),
                 lat,
                 lon,
+                rs.getString("address"),
                 rs.getTimestamp("created_at").toInstant(),
                 rs.getTimestamp("updated_at").toInstant()
         );
@@ -38,7 +39,7 @@ public class GreenhouseStore {
     public List<GreenhouseResponse> listByTenant(String tenantId) {
         return jdbcTemplate.query(
                 """
-                SELECT tenant_id, greenhouse_id, gateway_id, name, latitude, longitude, created_at, updated_at
+                SELECT tenant_id, greenhouse_id, gateway_id, name, latitude, longitude, address, created_at, updated_at
                 FROM gms.greenhouse
                 WHERE tenant_id = ?
                 ORDER BY created_at ASC
@@ -51,7 +52,7 @@ public class GreenhouseStore {
     public Optional<GreenhouseResponse> find(String tenantId, String greenhouseId) {
         List<GreenhouseResponse> matches = jdbcTemplate.query(
                 """
-                SELECT tenant_id, greenhouse_id, gateway_id, name, latitude, longitude, created_at, updated_at
+                SELECT tenant_id, greenhouse_id, gateway_id, name, latitude, longitude, address, created_at, updated_at
                 FROM gms.greenhouse
                 WHERE tenant_id = ? AND greenhouse_id = ?
                 """,
@@ -81,18 +82,20 @@ public class GreenhouseStore {
                                      String gatewayId,
                                      String name,
                                      Double latitude,
-                                     Double longitude) {
+                                     Double longitude,
+                                     String address) {
         jdbcTemplate.update(
                 """
-                INSERT INTO gms.greenhouse(tenant_id, greenhouse_id, gateway_id, name, latitude, longitude)
-                VALUES (?, ?, ?, ?, ?, ?)
+                INSERT INTO gms.greenhouse(tenant_id, greenhouse_id, gateway_id, name, latitude, longitude, address)
+                VALUES (?, ?, ?, ?, ?, ?, ?)
                 """,
                 tenantId,
                 greenhouseId,
                 gatewayId,
                 name,
                 latitude,
-                longitude
+                longitude,
+                blankToNull(address)
         );
 
         return find(tenantId, greenhouseId)
@@ -104,7 +107,8 @@ public class GreenhouseStore {
                                                String name,
                                                String gatewayId,
                                                Double latitude,
-                                               Double longitude) {
+                                               Double longitude,
+                                               String address) {
         int updated = jdbcTemplate.update(
                 """
                 UPDATE gms.greenhouse
@@ -112,6 +116,7 @@ public class GreenhouseStore {
                     gateway_id = COALESCE(?, gateway_id),
                     latitude = COALESCE(?, latitude),
                     longitude = COALESCE(?, longitude),
+                    address = COALESCE(?, address),
                     updated_at = NOW()
                 WHERE tenant_id = ? AND greenhouse_id = ?
                 """,
@@ -119,6 +124,7 @@ public class GreenhouseStore {
                 blankToNull(gatewayId),
                 latitude,
                 longitude,
+                blankToNull(address),
                 tenantId,
                 greenhouseId
         );

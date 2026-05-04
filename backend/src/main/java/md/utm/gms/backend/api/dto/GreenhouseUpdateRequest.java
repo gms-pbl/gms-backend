@@ -6,13 +6,15 @@ public record GreenhouseUpdateRequest(
         String name,
         @JsonProperty("gateway_id") String gatewayId,
         Double latitude,
-        Double longitude
+        Double longitude,
+        String address
 ) {
 
     public boolean hasUpdates() {
         return (name != null && !name.isBlank())
                 || (gatewayId != null && !gatewayId.isBlank())
                 || latitude != null
-                || longitude != null;
+                || longitude != null
+                || (address != null && !address.isBlank());
     }
 }
