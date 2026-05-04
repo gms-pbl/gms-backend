@@ -1,0 +1,2 @@
+ALTER TABLE gms.greenhouse
+    ADD COLUMN IF NOT EXISTS address VARCHAR(300);
