@@ -63,7 +63,7 @@ public class GreenhouseController {
         }
 
         try {
-            GreenhouseResponse created = greenhouseStore.create(tenantId, greenhouseId, gatewayId, request.name().trim());
+            GreenhouseResponse created = greenhouseStore.create(tenantId, greenhouseId, gatewayId, request.name().trim(), request.latitude(), request.longitude());
             return ResponseEntity.ok(created);
         } catch (DataIntegrityViolationException ex) {
             return ResponseEntity.badRequest().body(Map.of("error", "gateway_id is already assigned in this tenant."));
@@ -94,7 +94,7 @@ public class GreenhouseController {
 
         try {
             return greenhouseStore
-                    .update(tenantId, greenhouseId, normalizedName, normalizedGatewayId)
+                    .update(tenantId, greenhouseId, normalizedName, normalizedGatewayId, request.latitude(), request.longitude())
                     .map(ResponseEntity::ok)
                     .orElseGet(() -> ResponseEntity.notFound().build());
         } catch (DataIntegrityViolationException ex) {

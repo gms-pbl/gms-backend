@@ -9,6 +9,8 @@ public record GreenhouseResponse(
         @JsonProperty("greenhouse_id") String greenhouseId,
         @JsonProperty("gateway_id") String gatewayId,
         String name,
+        Double latitude,
+        Double longitude,
         @JsonProperty("created_at") Instant createdAt,
         @JsonProperty("updated_at") Instant updatedAt
 ) {
