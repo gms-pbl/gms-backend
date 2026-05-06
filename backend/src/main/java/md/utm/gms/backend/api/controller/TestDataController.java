@@ -46,30 +46,30 @@ public class TestDataController {
 
         // ── Sensor readings ───────────────────────────────────────────────
         List.of(
-            reading("soil_moisture",   62.4,  "%",     "OK"),
-            reading("air_temperature", 24.1,  "°C",    "OK"),
-            reading("air_humidity",    71.0,  "%RH",   "WARN"),
-            reading("soil_temp",       21.3,  "°C",    "OK"),
-            reading("soil_ec",          1.8,  "dS/m",  "OK"),
-            reading("soil_ph",          6.7,  "pH",    "OK"),
-            reading("soil_nitrogen",   34.0,  "mg/kg", "WARN"),
-            reading("soil_phosphorus", 18.0,  "mg/kg", "OK"),
-            reading("soil_potassium", 210.0,  "mg/kg", "OK"),
-            reading("soil_salinity",    1.2,  "ppt",   "OK")
+            reading("soil_moist",  62.4,  "%",     "OK"),
+            reading("air_temp",    24.1,  "°C",    "OK"),
+            reading("air_hum",     71.0,  "%RH",   "WARN"),
+            reading("soil_temp",   21.3,  "°C",    "OK"),
+            reading("soil_cond",    1.8,  "dS/m",  "OK"),
+            reading("soil_ph",      6.7,  "pH",    "OK"),
+            reading("soil_n",      34.0,  "mg/kg", "WARN"),
+            reading("soil_p",      18.0,  "mg/kg", "OK"),
+            reading("soil_k",     210.0,  "mg/kg", "OK"),
+            reading("soil_salinity", 1.2, "ppt",   "OK")
         ).forEach(sensorReadingStore::update);
 
         // ── Alerts ────────────────────────────────────────────────────────
         List.of(
-            alert("a1", "CRITICAL", "soil_moisture",
+            alert("a1", "CRITICAL", "soil_moist",
                     "Soil moisture critically low: 12% (min 30%)",
                     Instant.parse("2026-04-06T08:14:00Z"), false),
-            alert("a2", "WARNING",  "air_humidity",
+            alert("a2", "WARNING",  "air_hum",
                     "Air humidity above threshold: 71%RH (max 65%)",
                     Instant.parse("2026-04-06T09:02:00Z"), false),
-            alert("a3", "WARNING",  "soil_nitrogen",
+            alert("a3", "WARNING",  "soil_n",
                     "Nitrogen low: 34 mg/kg (min 40 mg/kg)",
                     Instant.parse("2026-04-06T07:45:00Z"), false),
-            alert("a4", "INFO",     "air_temperature",
+            alert("a4", "INFO",     "air_temp",
                     "Temperature nominal after morning fluctuation",
                     Instant.parse("2026-04-06T06:30:00Z"), true)
         ).forEach(alertStore::add);
@@ -90,9 +90,9 @@ public class TestDataController {
         alertStore.getAll(DEMO_TENANT).forEach(a -> alertStore.dismiss(DEMO_TENANT, a.getId()));
         // Sensor readings don't have a bulk-clear yet; replace each with a zeroed entry
         List.of(
-                "soil_moisture", "air_temperature", "air_humidity", "soil_temp",
-                "soil_ec", "soil_ph", "soil_nitrogen", "soil_phosphorus",
-                "soil_potassium", "soil_salinity"
+                "soil_moist", "air_temp", "air_hum", "soil_temp",
+                "soil_cond", "soil_ph", "soil_n", "soil_p",
+                "soil_k", "soil_salinity"
         ).forEach(key -> sensorReadingStore.update(reading(key, 0.0, "", "OK")));
 
         return ResponseEntity.ok(Map.of("note", "Stores cleared."));
