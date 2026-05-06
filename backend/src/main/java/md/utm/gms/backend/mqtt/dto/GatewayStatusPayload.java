@@ -7,13 +7,18 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 
 import java.time.Instant;
-import java.util.Map;
 
+/**
+ * Deserialisation target for the MQTT gateway status payload.
+ *
+ * <p>Published by the Mini PC gateway on topic:
+ * {@code gms/{tenant_id}/{greenhouse_id}/uplink/status}
+ */
 @Data
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
-public class GatewayTelemetryPayload {
+public class GatewayStatusPayload {
 
     @JsonProperty("event_id")
     private String eventId;
@@ -27,18 +32,11 @@ public class GatewayTelemetryPayload {
     @JsonProperty("gateway_id")
     private String gatewayId;
 
-    @JsonProperty("zone_id")
-    private String zoneId;
+    /** Gateway connectivity state: {@code ONLINE}, {@code OFFLINE}, {@code DEGRADED}. */
+    private String status;
 
-    @JsonProperty("zone_name")
-    private String zoneName;
-
-    @JsonProperty("device_id")
-    private String deviceId;
-
-    private String kind;
+    @JsonProperty("firmware_version")
+    private String firmwareVersion;
 
     private Instant timestamp;
-
-    private Map<String, Double> metrics;
 }
