@@ -12,6 +12,8 @@ public record GreenhouseResponse(
         Double latitude,
         Double longitude,
         String address,
+        String description,
+        @JsonProperty("photo_url") String photoUrl,
         @JsonProperty("created_at") Instant createdAt,
         @JsonProperty("updated_at") Instant updatedAt
 ) {
