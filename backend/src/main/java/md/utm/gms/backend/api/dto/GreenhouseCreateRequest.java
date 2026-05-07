@@ -9,6 +9,7 @@ public record GreenhouseCreateRequest(
         @JsonProperty("gateway_id") String gatewayId,
         Double latitude,
         Double longitude,
-        String address
+        String address,
+        String description
 ) {
 }
