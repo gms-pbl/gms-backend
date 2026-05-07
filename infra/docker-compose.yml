@@ -2,8 +2,9 @@
 # GMS backend local infrastructure
 #
 # Default flow in this repository:
-# - gateway stack (firmware/src/gateway) runs local broker on host port 1883
-# - backend container from this compose connects to that broker
+# - gateway stack (firmware/src/gateway) runs a cloud/global broker on host port 1883
+# - gateway stack also runs a separate local greenhouse broker on host port 18831
+# - backend container from this compose connects to the cloud/global broker on 1883
 # - timescaledb provides durable backend persistence (no local DB install needed)
 # ==============================================================================
 
