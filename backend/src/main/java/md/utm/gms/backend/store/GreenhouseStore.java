@@ -25,6 +25,8 @@ public class GreenhouseStore {
                 lat,
                 lon,
                 rs.getString("address"),
+                rs.getString("description"),
+                rs.getString("photo_url"),
                 rs.getTimestamp("created_at").toInstant(),
                 rs.getTimestamp("updated_at").toInstant()
         );
@@ -39,7 +41,7 @@ public class GreenhouseStore {
     public List<GreenhouseResponse> listByTenant(String tenantId) {
         return jdbcTemplate.query(
                 """
-                SELECT tenant_id, greenhouse_id, gateway_id, name, latitude, longitude, address, created_at, updated_at
+                SELECT tenant_id, greenhouse_id, gateway_id, name, latitude, longitude, address, description, photo_url, created_at, updated_at
                 FROM gms.greenhouse
                 WHERE tenant_id = ?
                 ORDER BY created_at ASC
@@ -52,7 +54,7 @@ public class GreenhouseStore {
     public Optional<GreenhouseResponse> find(String tenantId, String greenhouseId) {
         List<GreenhouseResponse> matches = jdbcTemplate.query(
                 """
-                SELECT tenant_id, greenhouse_id, gateway_id, name, latitude, longitude, address, created_at, updated_at
+                SELECT tenant_id, greenhouse_id, gateway_id, name, latitude, longitude, address, description, photo_url, created_at, updated_at
                 FROM gms.greenhouse
                 WHERE tenant_id = ? AND greenhouse_id = ?
                 """,
@@ -83,11 +85,12 @@ public class GreenhouseStore {
                                      String name,
                                      Double latitude,
                                      Double longitude,
-                                     String address) {
+                                     String address,
+                                     String description) {
         jdbcTemplate.update(
                 """
-                INSERT INTO gms.greenhouse(tenant_id, greenhouse_id, gateway_id, name, latitude, longitude, address)
-                VALUES (?, ?, ?, ?, ?, ?, ?)
+                INSERT INTO gms.greenhouse(tenant_id, greenhouse_id, gateway_id, name, latitude, longitude, address, description)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 tenantId,
                 greenhouseId,
@@ -95,7 +98,8 @@ public class GreenhouseStore {
                 name,
                 latitude,
                 longitude,
-                blankToNull(address)
+                blankToNull(address),
+                blankToNull(description)
         );
 
         return find(tenantId, greenhouseId)
@@ -108,7 +112,8 @@ public class GreenhouseStore {
                                                String gatewayId,
                                                Double latitude,
                                                Double longitude,
-                                               String address) {
+                                               String address,
+                                               String description) {
         int updated = jdbcTemplate.update(
                 """
                 UPDATE gms.greenhouse
@@ -117,6 +122,7 @@ public class GreenhouseStore {
                     latitude = COALESCE(?, latitude),
                     longitude = COALESCE(?, longitude),
                     address = COALESCE(?, address),
+                    description = COALESCE(?, description),
                     updated_at = NOW()
                 WHERE tenant_id = ? AND greenhouse_id = ?
                 """,
@@ -125,6 +131,7 @@ public class GreenhouseStore {
                 latitude,
                 longitude,
                 blankToNull(address),
+                blankToNull(description),
                 tenantId,
                 greenhouseId
         );
@@ -134,6 +141,20 @@ public class GreenhouseStore {
         }
 
         return find(tenantId, greenhouseId);
+    }
+
+    public boolean updatePhotoUrl(String tenantId, String greenhouseId, String photoUrl) {
+        int updated = jdbcTemplate.update(
+                """
+                UPDATE gms.greenhouse
+                SET photo_url = ?, updated_at = NOW()
+                WHERE tenant_id = ? AND greenhouse_id = ?
+                """,
+                photoUrl,
+                tenantId,
+                greenhouseId
+        );
+        return updated > 0;
     }
 
     @Transactional

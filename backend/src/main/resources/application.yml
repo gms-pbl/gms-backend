@@ -39,6 +39,8 @@ management:
 # TLS sub-section present -> mTLS enabled via X.509 client certificate.
 # ------------------------------------------------------------------------------
 gms:
+  upload:
+    base-dir: ${GMS_UPLOAD_DIR:uploads}
   mqtt:
     broker-url: ${GMS_MQTT_BROKER_URL:ssl://your-mqtt-broker-host:8883}
     client-id-prefix: gms-backend
