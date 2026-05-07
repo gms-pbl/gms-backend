@@ -30,11 +30,13 @@ Domain hierarchy:
 
 ```mermaid
 flowchart LR
-  D[Portenta Device] -->|edge local announce and telemetry| G[Gateway Edge Engine]
-  G -->|mqtt uplink gms/tenant/greenhouse/uplink/*| B[Spring Backend]
+  D[Portenta Device] -->|edge local MQTT| L[Gateway Local Broker]
+  L --> G[Gateway Edge Engine]
+  G -->|mqtt uplink via cloud broker| C[Cloud or Global MQTT Broker]
+  C --> B[Spring Backend]
   F[React Frontend] -->|REST with session cookie| B
-  B -->|mqtt downlink gms/tenant/greenhouse/downlink/*| G
-  G -->|edge config and output command| D
+  B -->|mqtt downlink via cloud broker| C
+  G -->|edge config and output command| L
 ```
 
 ## Prerequisites
@@ -72,7 +74,14 @@ This stack starts:
 - `gms-timescaledb` on `localhost:5432`
 - `gms-backend-dev` on `localhost:8081`
 
-The backend container connects to host MQTT on `host.docker.internal:1883` (single-gateway local broker or cluster shared cloud broker).
+The backend container connects to host MQTT on `host.docker.internal:1883`.
+
+In the current local workflows that means:
+
+- single-gateway mode: gateway workspace exposes the cloud/global broker on host `1883`
+- cluster mode: cluster shared cloud broker also uses host `1883`
+
+The backend does not talk to the Portenta-facing local broker directly.
 
 ### Option B: Native backend development
 
@@ -186,3 +195,4 @@ curl -sS -X POST http://localhost:8081/v1/g/greenhouse-demo/zones/assign \
 - If frontend proxy reports `ECONNREFUSED` / `ECONNRESET`, backend is down or restarting.
 - Backend logs: `docker logs -f gms-backend-dev`
 - Native runs should use Java 21 (`java -version`).
+- If the gateway stack was recently changed from cluster to single-gateway mode, clear stale gateway containers before retesting so the backend stays attached to the intended broker on `1883`.
